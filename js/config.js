@@ -1,8 +1,8 @@
 // ============================================================
 // CONFIG - Replace these with your own Supabase project values
 // ============================================================
-const SUPABASE_URL = "https://YOUR_PROJECT.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR_ANON_KEY_HERE";
+const SUPABASE_URL = "https://gubizstvrwaxrnivciqy.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1Yml6c3R2cndheHJuaXZjaXF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMDg2NDIsImV4cCI6MjEwMDc4NDY0Mn0.W4NX2C-jiBJSUiLjYfrn7XwsQHXIzmt3JIUfA2L2znI";
 
 // Rank definitions
 const RANKS = [
