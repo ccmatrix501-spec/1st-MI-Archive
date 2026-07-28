@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css" />
-  <script src="js/data.js"></script>
-  <script src="js/ranks-icons.js"></script>
+  <link rel="stylesheet" href="css/style.css?v=3" />
+  <script src="js/data.js?v=3"></script>
+  <script src="js/ranks-icons.js?v=3"></script>
 </head>
 <body>
   <script>renderNavbar("admin.html"); applyBackground();</script>
@@ -171,36 +171,10 @@
       <div class="panel mb-4">
         <h2 style="font-size:1.1rem;margin-bottom:0.6rem;">User Management</h2>
         <p class="text-sm text-muted mb-4">
-          Change ranks and roles. Use <strong>Edit Username</strong> / <strong>Reset Password</strong> if someone loses access.
-          To promote someone: set their Role to <strong>admin</strong>.
+          Edit ranks, roles, usernames and passwords. Use <strong>Remove</strong> to delete an account (including other admins).
         </p>
-        <div id="user-list"></div>
+        <div id="user-list"><p class="text-muted text-sm">Loading users...</p></div>
       </div>
-
-      <!-- Edit User Account (username / password recovery) -->
-      <div class="panel mb-4 hidden" id="edit-user-panel">
-        <h3 style="font-size:1rem;margin-bottom:0.8rem;">Edit Account — <span id="eu-label"></span></h3>
-        <p class="text-sm text-muted mb-4">Use this to recover access if someone forgets their password or needs a username change.</p>
-        <div id="eu-alert" class="hidden"></div>
-        <input type="hidden" id="eu-id" value="" />
-        <div class="form-group">
-          <label>Username</label>
-          <input type="text" id="eu-username" class="input" required minlength="3" />
-        </div>
-        <div class="form-group">
-          <label>New Password</label>
-          <input type="password" id="eu-password" class="input" placeholder="Leave blank to keep current password" minlength="4" />
-        </div>
-        <div class="form-group">
-          <label>Confirm New Password</label>
-          <input type="password" id="eu-password2" class="input" placeholder="Leave blank to keep current password" />
-        </div>
-        <div class="flex gap-2">
-          <button type="button" class="btn" onclick="saveUserAccount()">Save Account</button>
-          <button type="button" class="btn btn-outline" onclick="cancelEditUser()">Cancel</button>
-        </div>
-      </div>
-
       <div class="panel">
         <h3 style="font-size:1rem;margin-bottom:0.8rem;">Create New Admin Account</h3>
         <div id="new-admin-alert" class="hidden"></div>
@@ -642,21 +616,25 @@
 
     // ========== USERS ==========
     function renderUsers() {
+      const listEl = document.getElementById("user-list");
+      if (!listEl) return;
+
       if (session.role !== "admin") {
-        document.getElementById("user-list").innerHTML = `<p class="text-muted text-sm">Only admins can manage users.</p>`;
+        listEl.innerHTML = '<p class="text-muted text-sm">Only admins can manage users.</p>';
         return;
       }
 
       let users = getUsers();
 
-      // Ensure the currently logged-in admin always appears in the list
-      if (!users.find(u => u.id === session.id || u.username.toLowerCase() === session.username.toLowerCase())) {
+      // Ensure current user is in the list
+      const selfInList = users.some(u => u.id === session.id || u.username.toLowerCase() === session.username.toLowerCase());
+      if (!selfInList) {
         users.push({
           id: session.id,
           username: session.username,
           password: "",
-          role: session.role,
-          rank_level: session.rank_level,
+          role: session.role || "admin",
+          rank_level: session.rank_level || 22,
           created_at: new Date().toISOString()
         });
         saveUsers(users);
@@ -664,87 +642,78 @@
       }
 
       if (!users.length) {
-        document.getElementById("user-list").innerHTML = `<p class="text-muted text-sm">No users found. Create an admin account below.</p>`;
+        listEl.innerHTML = '<p class="text-muted text-sm">No users found. Create an admin below.</p>';
         return;
       }
 
-      document.getElementById("user-list").innerHTML = users.map((u, idx) => {
+      let html = '<div style="display:flex;flex-direction:column;gap:0.75rem;">';
+      users.forEach((u, idx) => {
         const isYou = (u.id === session.id || u.username.toLowerCase() === session.username.toLowerCase());
-        return `
-        <div style="padding:0.9rem 0;border-bottom:1px solid var(--border);${isYou ? "background:rgba(61,122,61,0.12);margin:0 -0.5rem;padding-left:0.5rem;padding-right:0.5rem;border-radius:6px;" : ""}">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
-            <div>
-              <strong>${esc(u.username)}</strong>
-              ${isYou ? '<span class="badge" style="background:#14532d;color:#86efac;border-color:#166534;margin-left:0.4rem;">YOU</span>' : ""}
-              <span class="text-xs text-muted" style="margin-left:0.5rem;">
-                <span style="color:${u.role==="admin"?"#fbbf24":u.role==="moderator"?"#60a5fa":"#9ca3af"}">${u.role}</span>
-                • <span style="display:inline-flex;align-items:center;gap:0.25rem;">${typeof rankIcon==="function"?rankIcon(u.rank_level,16):""} ${getRankName(u.rank_level)}</span>
-              </span>
-            </div>
-            <div class="flex gap-2 items-center" style="flex-wrap:wrap;">
-              <div>
-                <div class="text-xs text-muted" style="margin-bottom:0.15rem;">Rank</div>
-                <select class="select user-rank" data-idx="${idx}" style="width:auto;padding:0.3rem 0.5rem;font-size:0.8rem;">
-                  ${rankOptions(u.rank_level)}
-                </select>
-              </div>
-              <div>
-                <div class="text-xs text-muted" style="margin-bottom:0.15rem;">Role</div>
-                <select class="select user-role" data-idx="${idx}" style="width:auto;padding:0.3rem 0.5rem;font-size:0.8rem;">
-                  <option value="member" ${u.role==="member"?"selected":""}>member</option>
-                  <option value="moderator" ${u.role==="moderator"?"selected":""}>moderator</option>
-                  <option value="admin" ${u.role==="admin"?"selected":""}>admin</option>
-                </select>
-              </div>
-              <div>
-                <div class="text-xs text-muted" style="margin-bottom:0.15rem;">Account</div>
-                <div class="flex gap-1" style="flex-wrap:wrap;">
-                  <button type="button" class="btn btn-outline btn-sm btn-edit-user" data-idx="${idx}">Edit Username</button>
-                  <button type="button" class="btn btn-outline btn-sm btn-reset-pw" data-idx="${idx}">Reset Password</button>
-                  <button type="button" class="btn btn-danger btn-sm btn-delete-user" data-idx="${idx}">Remove</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>`;
-      }).join("");
+        const rankLabel = getRankName(u.rank_level);
+        const icon = (typeof rankIcon === "function") ? rankIcon(u.rank_level, 18) : "";
 
-      // Bind events after rendering (avoids broken inline handlers)
-      document.querySelectorAll(".user-rank").forEach(el => {
-        el.addEventListener("change", () => setRankByIdx(Number(el.dataset.idx), el.value));
+        html += '<div class="panel" style="padding:1rem;' + (isYou ? 'border-color:#3d7a3d;' : '') + '">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem;">';
+        html += '<div><strong style="font-size:1.05rem;">' + esc(u.username) + '</strong>';
+        if (isYou) html += ' <span class="badge" style="background:#14532d;color:#86efac;border-color:#166534;">YOU</span>';
+        html += '<div class="text-xs text-muted" style="margin-top:0.25rem;display:flex;align-items:center;gap:0.35rem;">';
+        html += icon + ' ' + rankLabel + ' &middot; <span style="color:' + (u.role==='admin'?'#fbbf24':u.role==='moderator'?'#60a5fa':'#9ca3af') + ';">' + u.role + '</span>';
+        html += '</div></div></div>';
+
+        // Controls row
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.6rem;align-items:end;">';
+
+        // Rank
+        html += '<div><div class="text-xs text-muted" style="margin-bottom:0.2rem;">Rank</div>';
+        html += '<select class="select" id="rank-sel-' + idx + '">' + rankOptions(u.rank_level) + '</select></div>';
+
+        // Role
+        html += '<div><div class="text-xs text-muted" style="margin-bottom:0.2rem;">Role</div>';
+        html += '<select class="select" id="role-sel-' + idx + '">';
+        html += '<option value="member"' + (u.role==='member'?' selected':'') + '>member</option>';
+        html += '<option value="moderator"' + (u.role==='moderator'?' selected':'') + '>moderator</option>';
+        html += '<option value="admin"' + (u.role==='admin'?' selected':'') + '>admin</option>';
+        html += '</select></div>';
+
+        // Buttons
+        html += '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;">';
+        html += '<button type="button" class="btn btn-sm" id="btn-save-' + idx + '">Save Rank/Role</button>';
+        html += '<button type="button" class="btn btn-outline btn-sm" id="btn-user-' + idx + '">Edit Username</button>';
+        html += '<button type="button" class="btn btn-outline btn-sm" id="btn-pass-' + idx + '">Reset Password</button>';
+        if (!isYou) {
+          html += '<button type="button" class="btn btn-danger btn-sm" id="btn-del-' + idx + '">Remove</button>';
+        }
+        html += '</div>';
+
+        html += '</div></div>';
       });
-      document.querySelectorAll(".user-role").forEach(el => {
-        el.addEventListener("change", () => setRoleByIdx(Number(el.dataset.idx), el.value));
-      });
-      document.querySelectorAll(".btn-edit-user").forEach(el => {
-        el.addEventListener("click", () => editUsernameByIdx(Number(el.dataset.idx)));
-      });
-      document.querySelectorAll(".btn-reset-pw").forEach(el => {
-        el.addEventListener("click", () => resetPasswordByIdx(Number(el.dataset.idx)));
-      });
-      document.querySelectorAll(".btn-delete-user").forEach(el => {
-        el.addEventListener("click", () => deleteUserByIdx(Number(el.dataset.idx)));
+      html += '</div>';
+      listEl.innerHTML = html;
+
+      // Bind buttons for each user
+      users.forEach((u, idx) => {
+        const saveBtn = document.getElementById("btn-save-" + idx);
+        const userBtn = document.getElementById("btn-user-" + idx);
+        const passBtn = document.getElementById("btn-pass-" + idx);
+        const delBtn = document.getElementById("btn-del-" + idx);
+
+        if (saveBtn) saveBtn.onclick = function() {
+          const rankEl = document.getElementById("rank-sel-" + idx);
+          const roleEl = document.getElementById("role-sel-" + idx);
+          applyUserChanges(idx, rankEl.value, roleEl.value);
+        };
+        if (userBtn) userBtn.onclick = function() { doEditUsername(idx); };
+        if (passBtn) passBtn.onclick = function() { doResetPassword(idx); };
+        if (delBtn) delBtn.onclick = function() { doDeleteUser(idx); };
       });
     }
 
-    function setRankByIdx(idx, level) {
+    function applyUserChanges(idx, level, role) {
       const users = getUsers();
-      if (!users[idx]) return;
-      users[idx].rank_level = Number(level);
-      saveUsers(users);
-      // Update session if self
-      if (users[idx].id === session.id || users[idx].username.toLowerCase() === session.username.toLowerCase()) {
-        session.rank_level = Number(level);
-        setSession({ id: session.id, username: session.username, role: session.role, rank_level: Number(level) });
-      }
-      renderUsers();
-    }
-
-    function setRoleByIdx(idx, role) {
-      const users = getUsers();
-      if (!users[idx]) return;
+      if (!users[idx]) { alert("User not found"); return; }
       const u = users[idx];
-      // Prevent demoting the last admin
+
+      // Last admin protection for demotion
       if (u.role === "admin" && role !== "admin") {
         const adminCount = users.filter(x => x.role === "admin").length;
         if (adminCount <= 1) {
@@ -753,20 +722,27 @@
           return;
         }
       }
+
+      u.rank_level = Number(level);
       u.role = role;
       saveUsers(users);
+
+      // Sync session if editing self
       if (u.id === session.id || u.username.toLowerCase() === session.username.toLowerCase()) {
+        session.rank_level = Number(level);
         session.role = role;
-        setSession({ id: session.id, username: session.username, role: role, rank_level: session.rank_level });
+        setSession({ id: session.id, username: session.username, role: role, rank_level: Number(level) });
       }
+
+      alert("Updated " + u.username + ": " + getRankName(level) + " / " + role);
       renderUsers();
     }
 
-    function editUsernameByIdx(idx) {
+    function doEditUsername(idx) {
       const users = getUsers();
-      if (!users[idx]) { alert("User not found."); return; }
+      if (!users[idx]) { alert("User not found"); return; }
       const u = users[idx];
-      const newName = prompt("Enter new username for \"" + u.username + "\":", u.username);
+      const newName = prompt("New username for \"" + u.username + "\":", u.username);
       if (newName === null) return;
       const trimmed = newName.trim();
       if (trimmed.length < 3) { alert("Username must be at least 3 characters."); return; }
@@ -781,15 +757,15 @@
         session.username = trimmed;
         setSession({ id: session.id, username: trimmed, role: session.role, rank_level: session.rank_level });
       }
-      alert("Username updated: " + oldName + " → " + trimmed);
+      alert("Username changed: " + oldName + " → " + trimmed);
       renderUsers();
     }
 
-    function resetPasswordByIdx(idx) {
+    function doResetPassword(idx) {
       const users = getUsers();
-      if (!users[idx]) { alert("User not found."); return; }
+      if (!users[idx]) { alert("User not found"); return; }
       const u = users[idx];
-      const newPass = prompt("Enter a new password for \"" + u.username + "\" (min 4 characters):");
+      const newPass = prompt("New password for \"" + u.username + "\" (min 4 chars):");
       if (newPass === null) return;
       if (newPass.length < 4) { alert("Password must be at least 4 characters."); return; }
       const confirmPass = prompt("Confirm new password:");
@@ -797,17 +773,16 @@
       if (newPass !== confirmPass) { alert("Passwords do not match."); return; }
       u.password = newPass;
       saveUsers(users);
-      alert("Password reset for " + u.username + ". They can now log in with the new password.");
+      alert("Password updated for " + u.username);
       renderUsers();
     }
 
-    function deleteUserByIdx(idx) {
+    function doDeleteUser(idx) {
       const users = getUsers();
       if (!users[idx]) return;
       const u = users[idx];
-      const isSelf = (u.id === session.id || u.username.toLowerCase() === session.username.toLowerCase());
-      if (isSelf) {
-        alert("You cannot remove your own account while logged in.");
+      if (u.id === session.id || u.username.toLowerCase() === session.username.toLowerCase()) {
+        alert("You cannot remove your own account.");
         return;
       }
       if (u.role === "admin") {
@@ -817,12 +792,14 @@
           return;
         }
       }
-      if (!confirm("Remove user \"" + u.username + "\"? This cannot be undone.")) return;
+      if (!confirm("Remove \"" + u.username + "\" permanently?")) return;
+      const name = u.username;
       users.splice(idx, 1);
       saveUsers(users);
-      alert("User \"" + u.username + "\" has been removed.");
+      alert("Removed " + name);
       renderUsers();
     }
+
 
     document.getElementById("new-admin-form").addEventListener("submit", e => {
       e.preventDefault();
