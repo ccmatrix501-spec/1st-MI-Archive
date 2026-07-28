@@ -32,6 +32,25 @@ function getRankName(level) {
   return r ? r.name : "Unknown";
 }
 
+// Rank display — uses SVG icons from ranks-icons.js when available
+function formatRank(level, size = 18) {
+  const name = getRankName(level);
+  if (typeof rankIcon === "function") {
+    return rankIcon(level, size) + " " + name;
+  }
+  // Fallback text symbols if SVG script not loaded
+  const n = Number(level);
+  let icon = "■";
+  if (n >= 22) icon = "★★★★";
+  else if (n >= 21) icon = "★";
+  else if (n >= 19) icon = "◆";
+  else if (n >= 15) icon = "▮▮";
+  else if (n >= 13) icon = "▮";
+  else if (n >= 6) icon = "▲";
+  else if (n >= 5) icon = "▼";
+  return icon + " " + name;
+}
+
 function canAccess(userRank, requiredRank) {
   return Number(userRank) >= Number(requiredRank);
 }
@@ -54,6 +73,14 @@ function save(key, value) {
 }
 
 function initDB() {
+  // Version 2 = 22-rank system with icons
+  const VERSION = 2;
+  const storedVersion = Number(localStorage.getItem("ta_version") || 0);
+  if (storedVersion < VERSION) {
+    localStorage.setItem("ta_version", String(VERSION));
+    // Keep existing data; ranks above old max still work via canAccess
+  }
+
   if (!localStorage.getItem("ta_users")) {
     const admin = {
       id: "admin",
@@ -258,7 +285,7 @@ function renderNavbar(active) {
       <div class="nav-user">
         <div>
           <div style="font-weight:600">${session.username}</div>
-          <div class="rank rank-${session.rank_level}">${getRankName(session.rank_level)} • ${session.role}</div>
+          <div class="rank rank-${session.rank_level}">${formatRank(session.rank_level)} • ${session.role}</div>
         </div>
         <button class="btn-logout" onclick="logout()">Logout</button>
       </div>

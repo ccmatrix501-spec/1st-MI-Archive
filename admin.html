@@ -6,6 +6,7 @@
   <title>Admin – Tactical Archive</title>
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/data.js"></script>
+  <script src="js/ranks-icons.js"></script>
 </head>
 <body>
   <script>renderNavbar("admin.html"); applyBackground();</script>
@@ -243,7 +244,7 @@
         <div style="padding:0.65rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
           <div>
             <strong>${esc(r.title)}</strong>
-            <div class="text-xs text-muted">${r.status} • ${getRankName(r.min_rank_level)}+ ${r.is_classified ? "• CLASSIFIED" : ""}</div>
+            <div class="text-xs text-muted">${r.status} • ${typeof rankIcon==="function"?rankIcon(r.min_rank_level,14):""} ${getRankName(r.min_rank_level)}+ ${r.is_classified ? "• CLASSIFIED" : ""}</div>
           </div>
           <div class="flex gap-2">
             <button class="btn btn-outline btn-sm" onclick="editReport('${r.id}')">Edit</button>
@@ -403,7 +404,7 @@
         <div style="padding:0.65rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
           <div>
             <strong>${esc(t.title)}</strong>
-            <div class="text-xs text-muted">${getRankName(t.min_rank_level)}+ • ${esc(t.category)}</div>
+            <div class="text-xs text-muted">${typeof rankIcon==="function"?rankIcon(t.min_rank_level,14):""} ${getRankName(t.min_rank_level)}+ • ${esc(t.category)}</div>
           </div>
           <div class="flex gap-2">
             <button class="btn btn-outline btn-sm" onclick="editTraining('${t.id}')">Edit</button>
@@ -476,7 +477,7 @@
         <div style="padding:0.65rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
           <div>
             <strong>${esc(v.title)}</strong>
-            <div class="text-xs text-muted">${getRankName(v.min_rank_level)}+</div>
+            <div class="text-xs text-muted">${typeof rankIcon==="function"?rankIcon(v.min_rank_level,14):""} ${getRankName(v.min_rank_level)}+</div>
           </div>
           <div class="flex gap-2">
             <button class="btn btn-outline btn-sm" onclick="editTutorial('${v.id}')">Edit</button>
@@ -622,7 +623,7 @@
             <strong>${esc(u.username)}</strong>
             <span class="text-xs text-muted" style="margin-left:0.5rem;">
               <span style="color:${u.role==="admin"?"#fbbf24":u.role==="moderator"?"#60a5fa":"#9ca3af"}">${u.role}</span>
-              • ${getRankName(u.rank_level)}
+              • ${formatRank(u.rank_level)}
             </span>
           </div>
           <div class="flex gap-2 items-center">

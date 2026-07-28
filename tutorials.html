@@ -6,6 +6,7 @@
   <title>Tutorials – Tactical Archive</title>
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/data.js"></script>
+  <script src="js/ranks-icons.js"></script>
 </head>
 <body>
   <script>renderNavbar("tutorials.html"); applyBackground();</script>
@@ -39,7 +40,7 @@
             <h3>${esc(item.title)}</h3>
             <p class="text-sm text-muted mt-1">${esc(item.description)}</p>
             <div class="mt-2 flex justify-between items-center">
-              <span class="badge badge-rank rank-${item.min_rank_level}">${getRankName(item.min_rank_level)}+</span>
+              <span class="badge badge-rank rank-${item.min_rank_level}">${typeof rankIcon==="function"?rankIcon(item.min_rank_level,14):""} ${getRankName(item.min_rank_level)}+</span>
               ${item.duration_minutes ? `<span class="text-xs text-muted">${item.duration_minutes} min</span>` : ''}
             </div>
             ${hasAccess && item.video_url ? `<a href="${esc(item.video_url)}" target="_blank" class="btn w-full btn-sm mt-3" style="justify-content:center;">Watch</a>` : ''}

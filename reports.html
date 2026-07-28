@@ -6,6 +6,7 @@
   <title>Reports – Tactical Archive</title>
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/data.js"></script>
+  <script src="js/ranks-icons.js"></script>
 </head>
 <body>
   <script>renderNavbar("reports.html"); applyBackground();</script>
@@ -22,7 +23,7 @@
     const session = requireAuth();
     if (!session) throw new Error("redirect");
 
-    document.getElementById("my-rank").textContent = getRankName(session.rank_level);
+    document.getElementById("my-rank").innerHTML = formatRank(session.rank_level, 18);
     document.getElementById("my-rank").className = "rank-" + session.rank_level;
 
     const reports = getReports()
@@ -45,7 +46,7 @@
                 <div class="flex items-center gap-2" style="flex-wrap:wrap;margin-bottom:0.3rem;">
                   <strong>${esc(r.title)}</strong>
                   ${r.is_classified ? '<span class="badge badge-classified">CLASSIFIED</span>' : ''}
-                  <span class="badge badge-rank rank-${r.min_rank_level}">${getRankName(r.min_rank_level)}+</span>
+                  <span class="badge badge-rank rank-${r.min_rank_level}">${typeof rankIcon==="function"?rankIcon(r.min_rank_level,16):""} ${getRankName(r.min_rank_level)}+</span>
                 </div>
                 ${r.summary ? `<p class="text-sm text-muted">${esc(r.summary)}</p>` : ''}
                 <div class="text-xs text-muted mt-2">${esc(r.author_name || "Unknown")} • ${date}</div>

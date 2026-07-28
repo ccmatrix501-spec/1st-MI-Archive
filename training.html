@@ -6,6 +6,7 @@
   <title>Training – Tactical Archive</title>
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/data.js"></script>
+  <script src="js/ranks-icons.js"></script>
 </head>
 <body>
   <script>renderNavbar("training.html"); applyBackground();</script>
@@ -38,7 +39,7 @@
             </div>
             <p class="text-sm text-muted mt-2">${esc(item.description)}</p>
             <div class="mt-2">
-              <span class="badge badge-rank rank-${item.min_rank_level}">${getRankName(item.min_rank_level)}+</span>
+              <span class="badge badge-rank rank-${item.min_rank_level}">${typeof rankIcon==="function"?rankIcon(item.min_rank_level,14):""} ${getRankName(item.min_rank_level)}+</span>
               <span class="text-xs text-muted" style="margin-left:0.4rem;">${esc(item.category || "General")}</span>
             </div>
             ${hasAccess ? `

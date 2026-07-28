@@ -6,6 +6,7 @@
   <title>Dashboard – Tactical Archive</title>
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/data.js"></script>
+  <script src="js/ranks-icons.js"></script>
 </head>
 <body>
   <script>renderNavbar("dashboard.html"); applyBackground();</script>
@@ -72,7 +73,7 @@
     if (!session) throw new Error("redirect");
 
     document.getElementById("welcome").textContent = session.username;
-    document.getElementById("dash-rank").textContent = getRankName(session.rank_level);
+    document.getElementById("dash-rank").innerHTML = formatRank(session.rank_level, 22);
     document.getElementById("dash-rank").className = "rank-" + session.rank_level;
     document.getElementById("dash-role").textContent = session.role;
 

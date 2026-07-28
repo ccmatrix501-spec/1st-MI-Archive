@@ -6,6 +6,7 @@
   <title>Profile Settings – Tactical Archive</title>
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/data.js"></script>
+  <script src="js/ranks-icons.js"></script>
 </head>
 <body>
   <script>renderNavbar("profile.html"); applyBackground();</script>
@@ -79,7 +80,7 @@
 
     document.getElementById("info-user").textContent = session.username;
     document.getElementById("info-role").textContent = session.role;
-    document.getElementById("info-rank").textContent = getRankName(session.rank_level);
+    document.getElementById("info-rank").innerHTML = formatRank(session.rank_level, 20);
     document.getElementById("info-rank").className = "rank-" + session.rank_level;
 
     // Load current background
