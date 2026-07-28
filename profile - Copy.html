@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile – Tactical Archive</title>
+  <link rel="stylesheet" href="css/style.css?v=s2" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js?v=s2"></script>
+  <script src="js/data.js?v=s2"></script>
+  <script src="js/ranks-icons.js?v=s2"></script>
+</head>
+<body>
+  <div id="app"><p class="text-muted text-center" style="padding:3rem;">Loading…</p></div>
+  <script>
+    (async function() {
+      initSupabase();
+      const session = await requireAdmin();
+      if (!session) return;
+      await applyBackground(); showVersion();
+      const settings = await getSettings();
+      let html = '<nav class="navbar"><div class="nav-inner"><div class="nav-brand"><span>◆</span> TACTICAL ARCHIVE</div><div class="nav-links"><a href="dashboard.html">Dashboard</a><a href="admin.html" style="color:#fbbf24">Admin</a><a href="profile.html" class="active" style="color:#fbbf24">Profile</a></div><div class="nav-user"><div><div style="font-weight:600">'+esc(session.username)+'</div></div><button class="btn-logout" onclick="logout()">Logout</button></div></div></nav>';
+      html += '<div class="container"><h1 style="font-size:1.45rem;margin-bottom:1rem;">Profile & Settings</h1>';
+      html += '<div class="panel mb-4"><h2 style="font-size:1.05rem;margin-bottom:0.8rem;">Account</h2><p><strong>'+esc(session.username)+'</strong></p><p class="text-sm text-muted">'+formatRank(session.rank_level)+' · '+session.role+'</p></div>';
+      html += '<div class="panel"><h2 style="font-size:1.05rem;margin-bottom:0.8rem;">Background Image</h2><form id="bg-form"><div class="form-group"><label>Image URL</label><input id="bg-url" class="input" value="'+esc(settings.background_image||"")+'" /></div><button class="btn" type="submit">Save</button> <button type="button" class="btn btn-outline" id="use-logo">Use Unit Logo</button></form><div id="bg-alert" class="hidden mt-4"></div></div></div>';
+      document.getElementById("app").innerHTML = html;
+      document.getElementById("bg-form").onsubmit = async function(e) {
+        e.preventDefault();
+        await saveSettings({ background_image: document.getElementById("bg-url").value.trim() });
+        await applyBackground();
+        const a = document.getElementById("bg-alert");
+        a.textContent = "Saved."; a.className = "alert alert-success"; a.classList.remove("hidden");
+      };
+      document.getElementById("use-logo").onclick = async function() {
+        document.getElementById("bg-url").value = "img/unit-logo.jpg";
+        await saveSettings({ background_image: "img/unit-logo.jpg" });
+        await applyBackground();
+      };
+    })();
+  </script>
+</body>
+</html>

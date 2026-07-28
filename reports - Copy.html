@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reports – Tactical Archive</title>
+  <link rel="stylesheet" href="css/style.css?v=s2" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js?v=s2"></script>
+  <script src="js/data.js?v=s2"></script>
+  <script src="js/ranks-icons.js?v=s2"></script>
+</head>
+<body>
+  <div id="app"><p class="text-muted text-center" style="padding:3rem;">Loading…</p></div>
+  <script>
+    let session = null;
+    function buildNav(active) {
+      const isAdmin = session.role === "admin";
+      const links = [["dashboard.html","Dashboard"],["reports.html","Reports"],["voting.html","Voting"],["training.html","Training"],["tutorials.html","Tutorials"],["tactical-centre.html","Tactical Centre"]];
+      if (isAdmin) links.push(["merits.html","Merits"],["admin.html","Admin"],["profile.html","Profile"]);
+      let h = '<nav class="navbar"><div class="nav-inner"><div class="nav-brand"><span>◆</span> TACTICAL ARCHIVE</div><div class="nav-links">';
+      links.forEach(([href,label]) => {
+        h += '<a href="'+href+'" class="'+(href===active?"active":"")+'" style="'+(["Merits","Admin","Profile"].includes(label)?"color:#fbbf24":"")+'">'+label+'</a>';
+      });
+      h += '</div><div class="nav-user"><div><div style="font-weight:600">'+esc(session.username)+'</div><div>'+formatRank(session.rank_level)+' · '+session.role+'</div></div><button class="btn-logout" onclick="logout()">Logout</button></div></div></nav>';
+      return h;
+    }
+    (async function() {
+      initSupabase();
+      session = await requireAuth();
+      if (!session) return;
+      await applyBackground(); showVersion();
+      const reports = await getReports(); // RLS already filters by rank
+      let html = buildNav("reports.html");
+      html += '<div class="container"><div class="mb-6"><h1 style="font-size:1.45rem;">Reports</h1><p class="text-muted text-sm">Your rank: <span id="my-rank"></span> · only reachable reports are shown</p></div>';
+      if (!reports.length) {
+        html += '<div class="panel text-center" style="padding:3rem;"><p class="text-muted">No reports available for your rank.</p></div>';
+      } else {
+        reports.forEach(r => {
+          html += '<a href="report.html?id='+encodeURIComponent(r.id)+'" class="card mb-4" style="display:block;text-decoration:none;color:inherit;"><div class="flex justify-between" style="flex-wrap:wrap;gap:0.5rem;"><strong>'+esc(r.title)+'</strong><span class="badge">'+formatRank(r.min_rank_level,14)+'+</span></div><p class="text-sm text-muted mt-2">'+(r.is_classified?"CLASSIFIED · ":"")+esc(r.author_name||"")+' · '+new Date(r.created_at).toLocaleDateString()+'</p></a>';
+        });
+      }
+      html += '</div>';
+      document.getElementById("app").innerHTML = html;
+      document.getElementById("my-rank").innerHTML = formatRank(session.rank_level, 18);
+    })();
+  </script>
+</body>
+</html>

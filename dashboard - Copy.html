@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard – Tactical Archive</title>
+  <link rel="stylesheet" href="css/style.css?v=s2" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js?v=s2"></script>
+  <script src="js/data.js?v=s2"></script>
+  <script src="js/ranks-icons.js?v=s2"></script>
+</head>
+<body>
+  <div id="nav-slot"></div>
+  <div class="container">
+    <div class="mb-6">
+      <h1 style="font-size:1.45rem;">Welcome, <span id="welcome">…</span></h1>
+      <p class="text-muted text-sm">
+        <span id="dash-rank"></span> · <span id="dash-role"></span>
+      </p>
+    </div>
+    <div class="grid grid-2" style="gap:1rem;">
+      <a href="reports.html" class="card"><h3>Reports</h3><p>Operational & classified</p><div class="count" id="c-reports">–</div></a>
+      <a href="voting.html" class="card"><h3>Voting</h3><p>Unit subjects · Yes/No/Maybe</p><div class="count" id="c-polls">–</div></a>
+      <a href="training.html" class="card"><h3>Training</h3><p>Materials by rank</p><div class="count" id="c-training">–</div></a>
+      <a href="tutorials.html" class="card"><h3>Tutorials</h3><p>Video links</p><div class="count" id="c-tutorials">–</div></a>
+      <a href="tactical-centre.html" class="card"><h3>Tactical Centre</h3><p>App links</p><div class="count" id="c-links">–</div></a>
+      <a href="merits.html" class="card" id="merits-card" style="display:none;"><h3>Merits</h3><p>Awards (admin)</p><div class="count" id="c-merits">–</div></a>
+    </div>
+  </div>
+  <script>
+    (async function() {
+      initSupabase();
+      const session = await requireAuth();
+      if (!session) return;
+      // navbar needs sync session loaded
+      document.getElementById("nav-slot").innerHTML = "";
+      // re-call render via manual insert since document.write already passed
+      const isAdmin = session.role === "admin";
+      const links = [
+        ["dashboard.html","Dashboard"],["reports.html","Reports"],["voting.html","Voting"],
+        ["training.html","Training"],["tutorials.html","Tutorials"],["tactical-centre.html","Tactical Centre"]
+      ];
+      if (isAdmin) {
+        links.push(["merits.html","Merits"],["admin.html","Admin"],["profile.html","Profile"]);
+      }
+      let nav = '<nav class="navbar"><div class="nav-inner"><div class="nav-brand"><span>◆</span> TACTICAL ARCHIVE</div><div class="nav-links">';
+      links.forEach(([href,label]) => {
+        const admin = (label==="Merits"||label==="Admin"||label==="Profile");
+        nav += '<a href="'+href+'" class="'+(href==="dashboard.html"?"active":"")+'" style="'+(admin?"color:#fbbf24":"")+'">'+label+'</a>';
+      });
+      nav += '</div><div class="nav-user"><div><div style="font-weight:600">'+esc(session.username)+'</div><div class="rank rank-'+session.rank_level+'">'+formatRank(session.rank_level)+' · '+session.role+'</div></div><button class="btn-logout" onclick="logout()">Logout</button></div></div></nav>';
+      document.getElementById("nav-slot").outerHTML = nav;
+
+      document.getElementById("welcome").textContent = session.username;
+      document.getElementById("dash-rank").innerHTML = formatRank(session.rank_level, 20);
+      document.getElementById("dash-role").textContent = session.role;
+
+      const reports = await getReports();
+      document.getElementById("c-reports").textContent = reports.length;
+      const polls = await getPolls();
+      document.getElementById("c-polls").textContent = polls.filter(p => p.active).length;
+      document.getElementById("c-training").textContent = (await getTraining()).length;
+      document.getElementById("c-tutorials").textContent = (await getTutorials()).length;
+      document.getElementById("c-links").textContent = (await getLinks()).length;
+      if (isAdmin) {
+        document.getElementById("merits-card").style.display = "";
+        document.getElementById("c-merits").textContent = (await getMerits()).length;
+      }
+      await applyBackground();
+      showVersion();
+    })();
+  </script>
+</body>
+</html>
