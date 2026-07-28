@@ -490,3 +490,29 @@ async function createMemberAccount(username, password, rankLevel, role) {
 }
 
 initSupabase();
+
+// Expose API on window (avoids "login is not defined" if scope issues)
+window.login = login;
+window.logout = logout;
+window.loadSession = loadSession;
+window.getSession = getSession;
+window.initSupabase = initSupabase;
+window.requireAuth = requireAuth;
+window.requireAdmin = requireAdmin;
+window.db = db;
+window.getReports = getReports;
+window.getPolls = getPolls;
+window.getVotes = getVotes;
+window.getTraining = getTraining;
+window.getTutorials = getTutorials;
+window.getLinks = getLinks;
+window.getMerits = getMerits;
+window.getProfiles = getProfiles;
+window.createMemberAccount = createMemberAccount;
+window.applyBackground = applyBackground;
+window.showVersion = showVersion;
+window.formatRank = formatRank;
+window.getRankName = getRankName;
+window.rankOptions = rankOptions;
+window.canAccess = canAccess;
+window.esc = esc;

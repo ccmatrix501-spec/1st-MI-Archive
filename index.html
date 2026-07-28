@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Tactical Archive – Login</title>
-  <link rel="stylesheet" href="css/style.css?v=s3" />
+  <link rel="stylesheet" href="css/style.css?v=s5" />
   <style>
     .input { font-size: 16px !important; min-height: 44px; -webkit-appearance: none; border-radius: 8px; }
     .btn { min-height: 48px; font-size: 1rem; touch-action: manipulation; }
     .login-wrap { padding: 1rem; align-items: flex-start; padding-top: 8vh; }
-    #status { text-align: center; font-size: 0.75rem; color: #6b7b6b; margin-top: 0.75rem; }
+    #status { text-align: center; font-size: 0.75rem; color: #6b7b6b; margin-top: 0.75rem; word-break: break-word; }
   </style>
 </head>
 <body>
@@ -35,18 +35,24 @@
           </div>
           <button type="submit" class="btn w-full" id="submit-btn">Login</button>
         </form>
-        <p class="text-center text-xs text-muted mt-4">Accounts are issued by unit leadership. No email required.</p>
-        <div id="status">Connecting…</div>
+        <p class="text-center text-xs text-muted mt-4">Accounts issued by unit leadership. No email required.</p>
+        <div id="status">Loading…</div>
       </div>
     </div>
   </div>
 
+  <!-- Supabase library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=s3"></script>
-  <script src="js/data.js?v=s3"></script>
-  <script src="js/ranks-icons.js?v=s3"></script>
   <script>
-    try { showVersion(); } catch (e) {}
+    // ============================================================
+    // PASTE YOUR ANON KEY HERE (Supabase → Settings → API → anon)
+    // ============================================================
+    var SUPABASE_URL = "https://gubizstvrwaxrnivciqy.supabase.co";
+    var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1Yml6c3R2cndheHJuaXZjaXF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMDg2NDIsImV4cCI6MjEwMDc4NDY0Mn0.W4NX2C-jiBJSUiLjYfrn7XwsQHXIzmt3JIUfA2L2znI";
+    // ============================================================
+
+    var SITE_VERSION = "2026-07-28-s5";
+    var client = null;
 
     var alertBox = document.getElementById("alert");
     var btn = document.getElementById("submit-btn");
@@ -61,33 +67,70 @@
       btn.disabled = false;
       btn.textContent = "Login";
     }
+    function usernameToEmail(username) {
+      var clean = String(username || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+      return clean + "@unit.local";
+    }
 
-    (async function init() {
+    function init() {
       try {
         if (!window.supabase || !window.supabase.createClient) {
-          status.textContent = "ERROR: Supabase library failed to load";
+          status.textContent = "ERROR: Could not load Supabase library (CDN blocked?)";
           status.style.color = "#f87171";
           return;
         }
-        if (!window.TA_CONFIG || String(window.TA_CONFIG.SUPABASE_ANON_KEY || "").indexOf("PASTE_") === 0) {
-          status.textContent = "ERROR: Paste anon key into js/config.js";
+        if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.indexOf("PASTE_") === 0) {
+          status.textContent = "ERROR: Open index.html and paste your anon key at the top of the script";
           status.style.color = "#f87171";
           return;
         }
-        if (!initSupabase()) {
-          status.textContent = "ERROR: Could not connect";
-          status.style.color = "#f87171";
-          return;
-        }
-        status.textContent = "Connected · " + (window.SITE_VERSION || "");
+        client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        status.textContent = "Connected · build " + SITE_VERSION;
         status.style.color = "#86efac";
-        var user = await loadSession();
-        if (user) window.location.replace("dashboard.html");
+
+        // Already logged in?
+        client.auth.getSession().then(function(res) {
+          if (res.data && res.data.session) {
+            window.location.replace("dashboard.html");
+          }
+        });
       } catch (err) {
         status.textContent = "Init error: " + (err.message || err);
         status.style.color = "#f87171";
       }
-    })();
+    }
+
+    async function doLogin(username, password) {
+      var email = usernameToEmail(username);
+      var res = await client.auth.signInWithPassword({ email: email, password: password });
+      if (res.error) {
+        var msg = res.error.message || "Login failed";
+        if (/invalid login|invalid credentials/i.test(msg)) return { error: "Invalid username or password" };
+        if (/email not confirmed/i.test(msg)) return { error: "Turn OFF Confirm email in Supabase Auth settings" };
+        return { error: msg };
+      }
+      if (!res.data || !res.data.user) return { error: "Login failed (no user)" };
+
+      var userId = res.data.user.id;
+      var profileRes = await client.from("profiles").select("*").eq("id", userId).maybeSingle();
+      if (profileRes.error) return { error: "Profile read failed: " + profileRes.error.message };
+
+      var profile = profileRes.data;
+      if (!profile) {
+        var uname = username.trim().toLowerCase();
+        var ins = await client.from("profiles").insert({
+          id: userId,
+          username: uname,
+          role: "admin",
+          rank_level: 22
+        }).select("*").maybeSingle();
+        if (ins.error) {
+          return { error: "No profile. Run profile SQL in Supabase. (" + ins.error.message + ")" };
+        }
+        profile = ins.data;
+      }
+      return { ok: true };
+    }
 
     document.getElementById("auth-form").addEventListener("submit", async function(e) {
       e.preventDefault();
@@ -95,22 +138,20 @@
       var username = document.getElementById("username").value.trim();
       var password = document.getElementById("password").value;
       if (!username || !password) { showError("Enter username and password."); return; }
+      if (!client) { showError("Not connected. Fix the error under the button first."); return; }
 
       btn.disabled = true;
       btn.textContent = "Please wait...";
 
-      var timedOut = false;
       var timer = setTimeout(function() {
-        timedOut = true;
-        showError("Login timed out. Check config.js anon key and your connection.");
+        showError("Timed out. Check anon key and internet.");
         resetBtn();
       }, 15000);
 
       try {
-        var result = await login(username, password);
+        var result = await doLogin(username, password);
         clearTimeout(timer);
-        if (timedOut) return;
-        if (result && result.error) {
+        if (result.error) {
           showError(result.error);
           resetBtn();
           return;
@@ -122,6 +163,16 @@
         resetBtn();
       }
     });
+
+    // Small footer version
+    try {
+      var el = document.createElement("div");
+      el.style.cssText = "position:fixed;bottom:6px;right:8px;font-size:10px;color:#4a5a4a;z-index:99;";
+      el.textContent = "build " + SITE_VERSION;
+      document.body.appendChild(el);
+    } catch (e) {}
+
+    init();
   </script>
 </body>
 </html>
