@@ -1,18 +1,30 @@
 // ============================================================
 // PURE LOCAL STORAGE DATABASE
-// Everything is stored in the browser. No external services.
 // ============================================================
 
 const RANKS = [
-  { level: 1, name: "Recruit" },
-  { level: 2, name: "Private" },
-  { level: 3, name: "Corporal" },
-  { level: 4, name: "Sergeant" },
-  { level: 5, name: "Lieutenant" },
-  { level: 6, name: "Captain" },
-  { level: 7, name: "Major" },
-  { level: 8, name: "Colonel" },
-  { level: 9, name: "General" },
+  { level: 1,  name: "Private" },
+  { level: 2,  name: "Private First Class" },
+  { level: 3,  name: "Lance Corporal" },
+  { level: 4,  name: "Specialist" },
+  { level: 5,  name: "Corporal" },
+  { level: 6,  name: "Sergeant" },
+  { level: 7,  name: "Staff Sergeant" },
+  { level: 8,  name: "Gunnery Sergeant" },
+  { level: 9,  name: "Master Sergeant" },
+  { level: 10, name: "First Sergeant" },
+  { level: 11, name: "Master Gunnery Sergeant" },
+  { level: 12, name: "Officer Cadet" },
+  { level: 13, name: "Second Lieutenant" },
+  { level: 14, name: "First Lieutenant" },
+  { level: 15, name: "Captain" },
+  { level: 16, name: "Warrant Officer" },
+  { level: 17, name: "Sergeant Major" },
+  { level: 18, name: "Command Sergeant Major" },
+  { level: 19, name: "Major" },
+  { level: 20, name: "Lieutenant Colonel" },
+  { level: 21, name: "Colonel" },
+  { level: 22, name: "General" },
 ];
 
 function getRankName(level) {
@@ -28,7 +40,6 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-// ---------- Storage helpers ----------
 function load(key, fallback) {
   try {
     const raw = localStorage.getItem("ta_" + key);
@@ -42,17 +53,14 @@ function save(key, value) {
   localStorage.setItem("ta_" + key, JSON.stringify(value));
 }
 
-// ---------- Init default data ----------
 function initDB() {
   if (!localStorage.getItem("ta_users")) {
-    // Default admin account
-    // username: admin   password: admin123
     const admin = {
       id: "admin",
       username: "admin",
-      password: "admin123",   // plain for simplicity (this is not real security)
+      password: "admin123",
       role: "admin",
-      rank_level: 9,
+      rank_level: 22,
       created_at: new Date().toISOString()
     };
     save("users", [admin]);
@@ -63,16 +71,18 @@ function initDB() {
   if (!localStorage.getItem("ta_tutorials")) save("tutorials", []);
   if (!localStorage.getItem("ta_links")) save("links", []);
   if (!localStorage.getItem("ta_comments")) save("comments", []);
+  if (!localStorage.getItem("ta_settings")) {
+    save("settings", { background_image: "" });
+  }
 }
 
-// ---------- Auth ----------
+// Auth
 function getSession() {
   const raw = sessionStorage.getItem("ta_session");
   return raw ? JSON.parse(raw) : null;
 }
 
 function setSession(user) {
-  // never store password in session
   const safe = { id: user.id, username: user.username, role: user.role, rank_level: user.rank_level };
   sessionStorage.setItem("ta_session", JSON.stringify(safe));
 }
@@ -135,38 +145,35 @@ function logout() {
   window.location.href = "index.html";
 }
 
-// ---------- Data helpers ----------
+// Data helpers
 function getReports() { return load("reports", []); }
 function saveReports(data) { save("reports", data); }
-
 function getMerits() { return load("merits", []); }
 function saveMerits(data) { save("merits", data); }
-
 function getTraining() { return load("training", []); }
 function saveTraining(data) { save("training", data); }
-
 function getTutorials() { return load("tutorials", []); }
 function saveTutorials(data) { save("tutorials", data); }
-
 function getLinks() { return load("links", []); }
 function saveLinks(data) { save("links", data); }
-
 function getComments() { return load("comments", []); }
 function saveComments(data) { save("comments", data); }
-
 function getUsers() { return load("users", []); }
 function saveUsers(data) { save("users", data); }
+function getSettings() { return load("settings", { background_image: "" }); }
+function saveSettings(data) { save("settings", data); }
 
-// ---------- Export / Import ----------
+// Export / Import
 function exportData() {
   const payload = {
-    users: getUsers().map(u => ({ ...u, password: undefined })), // strip passwords on export
+    users: getUsers().map(u => ({ ...u, password: undefined })),
     reports: getReports(),
     merits: getMerits(),
     training: getTraining(),
     tutorials: getTutorials(),
     links: getLinks(),
     comments: getComments(),
+    settings: getSettings(),
     exported_at: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -190,7 +197,7 @@ function importData(file) {
         if (data.tutorials) saveTutorials(data.tutorials);
         if (data.links) saveLinks(data.links);
         if (data.comments) saveComments(data.comments);
-        // users are not imported for safety
+        if (data.settings) saveSettings(data.settings);
         resolve(true);
       } catch (err) {
         reject(err);
@@ -200,7 +207,26 @@ function importData(file) {
   });
 }
 
-// ---------- Navbar helper ----------
+// Apply background image if set
+function applyBackground() {
+  const settings = getSettings();
+  if (settings.background_image) {
+    document.body.style.backgroundImage = `url('${settings.background_image}')`;
+    document.body.style.backgroundSize = "cover";
+    document.body.style.backgroundPosition = "center";
+    document.body.style.backgroundAttachment = "fixed";
+    document.body.style.backgroundRepeat = "no-repeat";
+  }
+}
+
+// Rank dropdown HTML helper
+function rankOptions(selected) {
+  return RANKS.map(r =>
+    `<option value="${r.level}" ${Number(selected) === r.level ? "selected" : ""}>${r.name}</option>`
+  ).join("");
+}
+
+// Navbar
 function renderNavbar(active) {
   const session = getSession();
   if (!session) return;
@@ -217,6 +243,7 @@ function renderNavbar(active) {
   ];
 
   if (isStaff) links.push({ href: "admin.html", label: "Admin", admin: true });
+  if (session.role === "admin") links.push({ href: "profile.html", label: "Profile", admin: true });
 
   document.write(`
   <nav class="navbar">
@@ -239,5 +266,4 @@ function renderNavbar(active) {
   </nav>`);
 }
 
-// Boot
 initDB();

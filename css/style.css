@@ -26,7 +26,8 @@ a { color: inherit; text-decoration: none; }
 
 /* Navbar */
 .navbar {
-  background: var(--panel);
+  background: rgba(17, 24, 17, 0.92);
+  backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 50;
 }
@@ -51,14 +52,15 @@ a { color: inherit; text-decoration: none; }
 
 /* Panels */
 .panel {
-  background: var(--panel); border: 1px solid var(--border);
+  background: rgba(17, 24, 17, 0.9);
+  border: 1px solid var(--border);
   border-radius: 10px; padding: 1.25rem 1.5rem;
 }
 .card-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;
 }
 .card {
-  background: var(--panel); border: 1px solid var(--border);
+  background: rgba(17, 24, 17, 0.9); border: 1px solid var(--border);
   border-radius: 10px; padding: 1.2rem; transition: border-color 0.15s;
 }
 .card:hover { border-color: var(--accent); }
@@ -87,7 +89,7 @@ a { color: inherit; text-decoration: none; }
 .form-group { margin-bottom: 0.9rem; }
 .form-group label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.25rem; }
 .input, .select, .textarea {
-  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  width: 100%; background: rgba(10, 15, 10, 0.85); border: 1px solid var(--border);
   border-radius: 6px; padding: 0.5rem 0.7rem; color: var(--text); font-size: 0.9rem;
 }
 .input:focus, .select:focus, .textarea:focus {
@@ -103,7 +105,7 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid; text-transform: uppercase; letter-spacing: 0.03em;
 }
 .badge-classified { background: #450a0a; color: #f87171; border-color: #7f1d1d; }
-.badge-rank { background: var(--bg); border-color: var(--border); }
+.badge-rank { background: rgba(10,15,10,0.85); border-color: var(--border); }
 
 /* Alerts */
 .alert { padding: 0.6rem 0.85rem; border-radius: 6px; font-size: 0.85rem; margin-bottom: 1rem; }
@@ -144,9 +146,19 @@ a { color: inherit; text-decoration: none; }
 .hidden { display: none !important; }
 .w-full { width: 100%; }
 
-.rank-1 { color: #9ca3af; } .rank-2 { color: #4ade80; } .rank-3 { color: #34d399; }
-.rank-4 { color: #2dd4bf; } .rank-5 { color: #22d3ee; } .rank-6 { color: #60a5fa; }
-.rank-7 { color: #818cf8; } .rank-8 { color: #c084fc; } .rank-9 { color: #fbbf24; }
+/* Rank colors - spectrum across 22 ranks */
+.rank-1, .rank-2 { color: #9ca3af; }
+.rank-3, .rank-4 { color: #86efac; }
+.rank-5, .rank-6 { color: #4ade80; }
+.rank-7, .rank-8 { color: #34d399; }
+.rank-9, .rank-10 { color: #2dd4bf; }
+.rank-11, .rank-12 { color: #22d3ee; }
+.rank-13, .rank-14 { color: #60a5fa; }
+.rank-15, .rank-16 { color: #818cf8; }
+.rank-17, .rank-18 { color: #a78bfa; }
+.rank-19, .rank-20 { color: #c084fc; }
+.rank-21 { color: #e879f9; }
+.rank-22 { color: #fbbf24; }
 
 @media (max-width: 768px) {
   .nav-links { display: none; }

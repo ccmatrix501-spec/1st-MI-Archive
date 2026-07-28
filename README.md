@@ -1,94 +1,69 @@
 # Tactical Archive – Pure HTML (GitHub Pages)
 
-A complete **client-side** archive for gaming communities / units.
-
-- No Supabase
-- No backend
-- No build step
-- Runs 100% on GitHub Pages
-
----
+100% client-side archive. No backend. Runs on GitHub Pages.
 
 ## Features
 
 - Login / Register
-- Rank system (Recruit → General)
-- Rank-gated Reports (users below the required rank see a lock)
+- 22 military ranks (Private → General)
+- Rank-gated Reports
 - Merits & Awards
 - Training materials
 - Tutorial videos
-- Tactical Centre links (web + desktop)
+- Tactical Centre links
 - Comments on reports
-- Full Admin panel (create everything + manage ranks/roles)
-- Export / Import as JSON (so you can share the archive with the unit)
+- Full Admin panel with **Edit** support for all content
+- Create / promote admins
+- Profile settings (change password + site background image)
+- Export / Import as JSON
 
----
+## Ranks
 
-## How to put it on GitHub Pages
+1. Private  
+2. Private First Class  
+3. Lance Corporal  
+4. Specialist  
+5. Corporal  
+6. Sergeant  
+7. Staff Sergeant  
+8. Gunnery Sergeant  
+9. Master Sergeant  
+10. First Sergeant  
+11. Master Gunnery Sergeant  
+12. Officer Cadet  
+13. Second Lieutenant  
+14. First Lieutenant  
+15. Captain  
+16. Warrant Officer  
+17. Sergeant Major  
+18. Command Sergeant Major  
+19. Major  
+20. Lieutenant Colonel  
+21. Colonel  
+22. General  
 
-1. Create a new **public** GitHub repository
-2. Upload **all** the files from this folder (keep the folder structure)
-3. Go to **Settings → Pages**
-4. Source = `main` branch, folder = `/ (root)`
-5. Wait ~30 seconds
+## Setup on GitHub Pages
 
-Your site will be live at:
-```
-https://YOUR_USERNAME.github.io/YOUR_REPO_NAME/
-```
+1. Create a public GitHub repo  
+2. Upload all files from this folder  
+3. Settings → Pages → Source = `main` / root  
+4. Site goes live at `https://YOUR_USERNAME.github.io/REPO_NAME/`
 
----
-
-## First login
-
-Default admin account (change it immediately):
+## Default admin
 
 | Username | Password  |
 |----------|-----------|
 | admin    | admin123  |
 
-After login go to **Admin → Users** and change ranks/roles as needed.
+Go to **Profile** (admins only) to change password and set a background image.
+
+## Sharing data with the unit
+
+1. Admin creates content  
+2. Admin → Export / Import → Download Backup JSON  
+3. Share the JSON file  
+4. Members import it  
 
 ---
 
-## How the community shares data
-
-Because everything is stored in each person’s browser:
-
-1. An admin creates reports, awards, etc.
-2. Admin goes to **Admin → Export / Import** and downloads the JSON backup
-3. Admin shares the JSON file with the unit (Discord, Drive, etc.)
-4. Other members go to Admin → Import and load the same file
-
-This is the practical way to keep everyone on the same archive without a real database.
-
----
-
-## File structure
-
-```
-index.html              ← Login
-dashboard.html
-reports.html
-report.html
-merits.html
-training.html
-tutorials.html
-tactical-centre.html
-admin.html              ← Full management
-css/style.css
-js/data.js              ← All logic + localStorage
-README.md
-```
-
----
-
-## Security note
-
-This is pure client-side storage. It is **not** real server security.  
-Anyone with browser dev tools can see the data.  
-It is suitable for a private community archive, not for highly sensitive information.
-
----
-
-Enjoy.
+All data is stored in the browser (localStorage). Not real server security.

@@ -8,7 +8,7 @@
   <script src="js/data.js"></script>
 </head>
 <body>
-  <script>renderNavbar("admin.html");</script>
+  <script>renderNavbar("admin.html"); applyBackground();</script>
 
   <div class="container">
     <div class="mb-6">
@@ -16,46 +16,28 @@
       <p class="text-muted text-sm">Manage content, ranks and users</p>
     </div>
 
-    <!-- Tabs -->
     <div class="flex gap-2 mb-6" style="flex-wrap:wrap;">
-      <button class="btn btn-sm" onclick="showTab('reports')">Reports</button>
-      <button class="btn btn-outline btn-sm" onclick="showTab('merits')">Merits</button>
-      <button class="btn btn-outline btn-sm" onclick="showTab('training')">Training</button>
-      <button class="btn btn-outline btn-sm" onclick="showTab('tutorials')">Tutorials</button>
-      <button class="btn btn-outline btn-sm" onclick="showTab('links')">Tactical Centre</button>
-      <button class="btn btn-outline btn-sm" onclick="showTab('users')">Users</button>
-      <button class="btn btn-outline btn-sm" onclick="showTab('data')">Export / Import</button>
+      <button class="btn btn-sm tab-btn" data-tab="reports" onclick="showTab('reports')">Reports</button>
+      <button class="btn btn-outline btn-sm tab-btn" data-tab="merits" onclick="showTab('merits')">Merits</button>
+      <button class="btn btn-outline btn-sm tab-btn" data-tab="training" onclick="showTab('training')">Training</button>
+      <button class="btn btn-outline btn-sm tab-btn" data-tab="tutorials" onclick="showTab('tutorials')">Tutorials</button>
+      <button class="btn btn-outline btn-sm tab-btn" data-tab="links" onclick="showTab('links')">Tactical Centre</button>
+      <button class="btn btn-outline btn-sm tab-btn" data-tab="users" onclick="showTab('users')">Users</button>
+      <button class="btn btn-outline btn-sm tab-btn" data-tab="data" onclick="showTab('data')">Export / Import</button>
     </div>
 
-    <!-- REPORTS TAB -->
+    <!-- REPORTS -->
     <div id="tab-reports">
       <div class="panel mb-6">
-        <h2 style="font-size:1.1rem;margin-bottom:1rem;">Create Report</h2>
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;" id="r-form-title">Create Report</h2>
         <div id="r-alert" class="hidden"></div>
         <form id="report-form">
-          <div class="form-group">
-            <label>Title</label>
-            <input type="text" id="r-title" class="input" required />
-          </div>
-          <div class="form-group">
-            <label>Summary</label>
-            <input type="text" id="r-summary" class="input" />
-          </div>
-          <div class="form-group">
-            <label>Content</label>
-            <textarea id="r-content" class="textarea" required></textarea>
-          </div>
+          <input type="hidden" id="r-edit-id" value="" />
+          <div class="form-group"><label>Title</label><input type="text" id="r-title" class="input" required /></div>
+          <div class="form-group"><label>Summary</label><input type="text" id="r-summary" class="input" /></div>
+          <div class="form-group"><label>Content</label><textarea id="r-content" class="textarea" required></textarea></div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.8rem;">
-            <div class="form-group">
-              <label>Min Rank</label>
-              <select id="r-rank" class="select">
-                <option value="1">Recruit</option><option value="2">Private</option>
-                <option value="3">Corporal</option><option value="4">Sergeant</option>
-                <option value="5">Lieutenant</option><option value="6">Captain</option>
-                <option value="7">Major</option><option value="8">Colonel</option>
-                <option value="9">General</option>
-              </select>
-            </div>
+            <div class="form-group"><label>Min Rank</label><select id="r-rank" class="select"></select></div>
             <div class="form-group">
               <label>Status</label>
               <select id="r-status" class="select">
@@ -69,11 +51,11 @@
               </label>
             </div>
           </div>
-          <div class="form-group">
-            <label>Attachment URL (optional)</label>
-            <input type="url" id="r-file" class="input" placeholder="https://..." />
+          <div class="form-group"><label>Attachment URL (optional)</label><input type="url" id="r-file" class="input" placeholder="https://..." /></div>
+          <div class="flex gap-2">
+            <button type="submit" class="btn" id="r-submit">Create Report</button>
+            <button type="button" class="btn btn-outline hidden" id="r-cancel" onclick="cancelEditReport()">Cancel Edit</button>
           </div>
-          <button type="submit" class="btn">Create Report</button>
         </form>
       </div>
       <div class="panel">
@@ -82,11 +64,12 @@
       </div>
     </div>
 
-    <!-- MERITS TAB -->
+    <!-- MERITS -->
     <div id="tab-merits" class="hidden">
       <div class="panel mb-6">
-        <h2 style="font-size:1.1rem;margin-bottom:1rem;">Issue Merit / Award</h2>
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;" id="m-form-title">Issue Merit / Award</h2>
         <form id="merit-form">
+          <input type="hidden" id="m-edit-id" value="" />
           <div class="form-group"><label>Title</label><input type="text" id="m-title" class="input" required /></div>
           <div class="form-group"><label>Description</label><textarea id="m-desc" class="textarea" required></textarea></div>
           <div class="form-group"><label>Recipient Username</label><input type="text" id="m-recipient" class="input" required /></div>
@@ -99,95 +82,120 @@
               <option value="promotion">Promotion</option>
             </select>
           </div>
-          <div class="form-group"><label>File / Certificate URL (optional)</label><input type="url" id="m-file" class="input" /></div>
-          <button type="submit" class="btn">Issue Award</button>
+          <div class="form-group"><label>File / Certificate URL</label><input type="url" id="m-file" class="input" /></div>
+          <div class="flex gap-2">
+            <button type="submit" class="btn" id="m-submit">Issue Award</button>
+            <button type="button" class="btn btn-outline hidden" id="m-cancel" onclick="cancelEditMerit()">Cancel Edit</button>
+          </div>
         </form>
+      </div>
+      <div class="panel">
+        <h3 style="margin-bottom:0.8rem;">Existing Awards</h3>
+        <div id="m-list"></div>
       </div>
     </div>
 
-    <!-- TRAINING TAB -->
+    <!-- TRAINING -->
     <div id="tab-training" class="hidden">
       <div class="panel mb-6">
-        <h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Training Material</h2>
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;" id="t-form-title">Add Training Material</h2>
         <form id="training-form">
+          <input type="hidden" id="t-edit-id" value="" />
           <div class="form-group"><label>Title</label><input type="text" id="t-title" class="input" required /></div>
           <div class="form-group"><label>Description</label><textarea id="t-desc" class="textarea" required></textarea></div>
           <div class="form-group"><label>Category</label><input type="text" id="t-cat" class="input" value="General" /></div>
-          <div class="form-group">
-            <label>Min Rank</label>
-            <select id="t-rank" class="select">
-              <option value="1">Recruit</option><option value="2">Private</option>
-              <option value="3">Corporal</option><option value="4">Sergeant</option>
-              <option value="5">Lieutenant</option><option value="6">Captain</option>
-              <option value="7">Major</option><option value="8">Colonel</option>
-              <option value="9">General</option>
-            </select>
-          </div>
+          <div class="form-group"><label>Min Rank</label><select id="t-rank" class="select"></select></div>
           <div class="form-group"><label>File URL</label><input type="url" id="t-file" class="input" /></div>
           <div class="form-group"><label>External URL</label><input type="url" id="t-ext" class="input" /></div>
-          <button type="submit" class="btn">Add Material</button>
+          <div class="flex gap-2">
+            <button type="submit" class="btn" id="t-submit">Add Material</button>
+            <button type="button" class="btn btn-outline hidden" id="t-cancel" onclick="cancelEditTraining()">Cancel Edit</button>
+          </div>
         </form>
+      </div>
+      <div class="panel">
+        <h3 style="margin-bottom:0.8rem;">Existing Materials</h3>
+        <div id="t-list"></div>
       </div>
     </div>
 
-    <!-- TUTORIALS TAB -->
+    <!-- TUTORIALS -->
     <div id="tab-tutorials" class="hidden">
       <div class="panel mb-6">
-        <h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Tutorial</h2>
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;" id="v-form-title">Add Tutorial</h2>
         <form id="tutorial-form">
+          <input type="hidden" id="v-edit-id" value="" />
           <div class="form-group"><label>Title</label><input type="text" id="v-title" class="input" required /></div>
           <div class="form-group"><label>Description</label><textarea id="v-desc" class="textarea" required></textarea></div>
-          <div class="form-group"><label>Video URL (YouTube / Vimeo / direct)</label><input type="url" id="v-url" class="input" required /></div>
+          <div class="form-group"><label>Video URL</label><input type="url" id="v-url" class="input" required /></div>
           <div class="form-group"><label>Duration (minutes)</label><input type="number" id="v-dur" class="input" min="1" /></div>
-          <div class="form-group">
-            <label>Min Rank</label>
-            <select id="v-rank" class="select">
-              <option value="1">Recruit</option><option value="2">Private</option>
-              <option value="3">Corporal</option><option value="4">Sergeant</option>
-              <option value="5">Lieutenant</option><option value="6">Captain</option>
-              <option value="7">Major</option><option value="8">Colonel</option>
-              <option value="9">General</option>
-            </select>
+          <div class="form-group"><label>Min Rank</label><select id="v-rank" class="select"></select></div>
+          <div class="flex gap-2">
+            <button type="submit" class="btn" id="v-submit">Add Tutorial</button>
+            <button type="button" class="btn btn-outline hidden" id="v-cancel" onclick="cancelEditTutorial()">Cancel Edit</button>
           </div>
-          <button type="submit" class="btn">Add Tutorial</button>
         </form>
+      </div>
+      <div class="panel">
+        <h3 style="margin-bottom:0.8rem;">Existing Tutorials</h3>
+        <div id="v-list"></div>
       </div>
     </div>
 
-    <!-- LINKS TAB -->
+    <!-- LINKS -->
     <div id="tab-links" class="hidden">
       <div class="panel mb-6">
-        <h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Tactical Centre Link</h2>
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;" id="l-form-title">Add Tactical Centre Link</h2>
         <form id="link-form">
+          <input type="hidden" id="l-edit-id" value="" />
           <div class="form-group"><label>Name</label><input type="text" id="l-name" class="input" required /></div>
           <div class="form-group"><label>Description</label><textarea id="l-desc" class="textarea" required></textarea></div>
           <div class="form-group"><label>Version</label><input type="text" id="l-ver" class="input" value="1.0.0" /></div>
           <div class="form-group"><label>Web URL</label><input type="url" id="l-web" class="input" /></div>
           <div class="form-group"><label>Desktop Download URL</label><input type="url" id="l-desk" class="input" /></div>
-          <button type="submit" class="btn">Add Link</button>
+          <div class="flex gap-2">
+            <button type="submit" class="btn" id="l-submit">Add Link</button>
+            <button type="button" class="btn btn-outline hidden" id="l-cancel" onclick="cancelEditLink()">Cancel Edit</button>
+          </div>
+        </form>
+      </div>
+      <div class="panel">
+        <h3 style="margin-bottom:0.8rem;">Existing Links</h3>
+        <div id="l-list"></div>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div id="tab-users" class="hidden">
+      <div class="panel mb-4">
+        <h2 style="font-size:1.1rem;margin-bottom:0.6rem;">User Management</h2>
+        <p class="text-sm text-muted mb-4">
+          To add another admin: change their <strong>Role</strong> dropdown to <strong>admin</strong>.
+        </p>
+        <div id="user-list"></div>
+      </div>
+      <div class="panel">
+        <h3 style="font-size:1rem;margin-bottom:0.8rem;">Create New Admin Account</h3>
+        <div id="new-admin-alert" class="hidden"></div>
+        <form id="new-admin-form">
+          <div class="form-group"><label>Username</label><input type="text" id="na-username" class="input" required minlength="3" /></div>
+          <div class="form-group"><label>Password</label><input type="password" id="na-password" class="input" required minlength="4" /></div>
+          <div class="form-group"><label>Starting Rank</label><select id="na-rank" class="select"></select></div>
+          <button type="submit" class="btn">Create Admin</button>
         </form>
       </div>
     </div>
 
-    <!-- USERS TAB -->
-    <div id="tab-users" class="hidden">
-      <div class="panel">
-        <h2 style="font-size:1.1rem;margin-bottom:1rem;">User Management</h2>
-        <p class="text-sm text-muted mb-4">Change ranks and roles. Only admins can do this.</p>
-        <div id="user-list"></div>
-      </div>
-    </div>
-
-    <!-- DATA TAB -->
+    <!-- DATA -->
     <div id="tab-data" class="hidden">
       <div class="panel mb-4">
         <h2 style="font-size:1.1rem;margin-bottom:0.8rem;">Export Archive</h2>
-        <p class="text-sm text-muted mb-4">Download a JSON backup of all reports, merits, training, etc. Share this file with other members so they can import it.</p>
+        <p class="text-sm text-muted mb-4">Download a JSON backup of all content. Share it with the unit.</p>
         <button class="btn" onclick="exportData()">Download Backup JSON</button>
       </div>
       <div class="panel">
         <h2 style="font-size:1.1rem;margin-bottom:0.8rem;">Import Archive</h2>
-        <p class="text-sm text-muted mb-4">Load a previously exported JSON file. This will overwrite current content (users are not imported).</p>
+        <p class="text-sm text-muted mb-4">Load a previously exported JSON file.</p>
         <input type="file" id="import-file" accept=".json" class="input mb-4" />
         <button class="btn" onclick="doImport()">Import</button>
         <div id="import-msg" class="mt-4 hidden"></div>
@@ -199,35 +207,82 @@
     const session = requireStaff();
     if (!session) throw new Error("redirect");
 
+    // Fill all rank selects
+    ["r-rank","t-rank","v-rank","na-rank"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = rankOptions(id === "na-rank" ? 22 : 1);
+    });
+
     function showTab(name) {
       ["reports","merits","training","tutorials","links","users","data"].forEach(t => {
         document.getElementById("tab-" + t).classList.add("hidden");
       });
       document.getElementById("tab-" + name).classList.remove("hidden");
+      document.querySelectorAll(".tab-btn").forEach(b => {
+        b.className = b.dataset.tab === name ? "btn btn-sm tab-btn" : "btn btn-outline btn-sm tab-btn";
+      });
       if (name === "users") renderUsers();
       if (name === "reports") renderReportList();
+      if (name === "merits") renderMeritList();
+      if (name === "training") renderTrainingList();
+      if (name === "tutorials") renderTutorialList();
+      if (name === "links") renderLinkList();
     }
 
-    // ----- Reports -----
+    function esc(s) {
+      if (!s) return "";
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    // ========== REPORTS ==========
     function renderReportList() {
       const reports = getReports().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
       const el = document.getElementById("r-list");
       if (!reports.length) { el.innerHTML = `<p class="text-muted text-sm">No reports yet.</p>`; return; }
       el.innerHTML = reports.map(r => `
-        <div style="padding:0.65rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;">
+        <div style="padding:0.65rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
           <div>
             <strong>${esc(r.title)}</strong>
             <div class="text-xs text-muted">${r.status} • ${getRankName(r.min_rank_level)}+ ${r.is_classified ? "• CLASSIFIED" : ""}</div>
           </div>
-          <button class="btn btn-danger btn-sm" onclick="deleteReport('${r.id}')">Delete</button>
+          <div class="flex gap-2">
+            <button class="btn btn-outline btn-sm" onclick="editReport('${r.id}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteReport('${r.id}')">Delete</button>
+          </div>
         </div>`).join("");
+    }
+
+    function editReport(id) {
+      const r = getReports().find(x => x.id === id);
+      if (!r) return;
+      document.getElementById("r-edit-id").value = r.id;
+      document.getElementById("r-title").value = r.title;
+      document.getElementById("r-summary").value = r.summary || "";
+      document.getElementById("r-content").value = r.content;
+      document.getElementById("r-rank").value = r.min_rank_level;
+      document.getElementById("r-status").value = r.status;
+      document.getElementById("r-classified").checked = !!r.is_classified;
+      document.getElementById("r-file").value = r.file_url || "";
+      document.getElementById("r-form-title").textContent = "Edit Report";
+      document.getElementById("r-submit").textContent = "Save Changes";
+      document.getElementById("r-cancel").classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function cancelEditReport() {
+      document.getElementById("report-form").reset();
+      document.getElementById("r-edit-id").value = "";
+      document.getElementById("r-form-title").textContent = "Create Report";
+      document.getElementById("r-submit").textContent = "Create Report";
+      document.getElementById("r-cancel").classList.add("hidden");
+      document.getElementById("r-rank").value = 1;
     }
 
     document.getElementById("report-form").addEventListener("submit", e => {
       e.preventDefault();
+      const editId = document.getElementById("r-edit-id").value;
       const reports = getReports();
-      reports.push({
-        id: uid(),
+      const payload = {
         title: document.getElementById("r-title").value.trim(),
         summary: document.getElementById("r-summary").value.trim() || null,
         content: document.getElementById("r-content").value.trim(),
@@ -235,14 +290,24 @@
         status: document.getElementById("r-status").value,
         is_classified: document.getElementById("r-classified").checked,
         file_url: document.getElementById("r-file").value.trim() || null,
-        author_id: session.id,
-        author_name: session.username,
-        created_at: new Date().toISOString()
-      });
+      };
+
+      if (editId) {
+        const idx = reports.findIndex(r => r.id === editId);
+        if (idx >= 0) {
+          reports[idx] = { ...reports[idx], ...payload, updated_at: new Date().toISOString() };
+        }
+      } else {
+        reports.push({
+          id: uid(), ...payload,
+          author_id: session.id, author_name: session.username,
+          created_at: new Date().toISOString()
+        });
+      }
       saveReports(reports);
-      document.getElementById("report-form").reset();
+      cancelEditReport();
       const a = document.getElementById("r-alert");
-      a.textContent = "Report created.";
+      a.textContent = editId ? "Report updated." : "Report created.";
       a.className = "alert alert-success";
       a.classList.remove("hidden");
       renderReportList();
@@ -254,82 +319,297 @@
       renderReportList();
     }
 
-    // ----- Merits -----
+    // ========== MERITS ==========
+    function renderMeritList() {
+      const items = getMerits().sort((a,b) => new Date(b.date_awarded) - new Date(a.date_awarded));
+      const el = document.getElementById("m-list");
+      if (!items.length) { el.innerHTML = `<p class="text-muted text-sm">No awards yet.</p>`; return; }
+      el.innerHTML = items.map(m => `
+        <div style="padding:0.65rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <div>
+            <strong>${esc(m.title)}</strong>
+            <div class="text-xs text-muted">${esc(m.award_type)} • ${esc(m.recipient_name)}</div>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-outline btn-sm" onclick="editMerit('${m.id}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteMerit('${m.id}')">Delete</button>
+          </div>
+        </div>`).join("");
+    }
+
+    function editMerit(id) {
+      const m = getMerits().find(x => x.id === id);
+      if (!m) return;
+      document.getElementById("m-edit-id").value = m.id;
+      document.getElementById("m-title").value = m.title;
+      document.getElementById("m-desc").value = m.description;
+      document.getElementById("m-recipient").value = m.recipient_name;
+      document.getElementById("m-type").value = m.award_type;
+      document.getElementById("m-file").value = m.file_url || "";
+      document.getElementById("m-form-title").textContent = "Edit Award";
+      document.getElementById("m-submit").textContent = "Save Changes";
+      document.getElementById("m-cancel").classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function cancelEditMerit() {
+      document.getElementById("merit-form").reset();
+      document.getElementById("m-edit-id").value = "";
+      document.getElementById("m-form-title").textContent = "Issue Merit / Award";
+      document.getElementById("m-submit").textContent = "Issue Award";
+      document.getElementById("m-cancel").classList.add("hidden");
+    }
+
     document.getElementById("merit-form").addEventListener("submit", e => {
       e.preventDefault();
-      const merits = getMerits();
-      merits.push({
-        id: uid(),
+      const editId = document.getElementById("m-edit-id").value;
+      const items = getMerits();
+      const payload = {
         title: document.getElementById("m-title").value.trim(),
         description: document.getElementById("m-desc").value.trim(),
         recipient_name: document.getElementById("m-recipient").value.trim(),
         award_type: document.getElementById("m-type").value,
         file_url: document.getElementById("m-file").value.trim() || null,
-        awarded_by_name: session.username,
-        date_awarded: new Date().toISOString().slice(0,10),
-        created_at: new Date().toISOString()
-      });
-      saveMerits(merits);
-      document.getElementById("merit-form").reset();
-      alert("Award issued.");
+      };
+      if (editId) {
+        const idx = items.findIndex(x => x.id === editId);
+        if (idx >= 0) items[idx] = { ...items[idx], ...payload };
+      } else {
+        items.push({
+          id: uid(), ...payload,
+          awarded_by_name: session.username,
+          date_awarded: new Date().toISOString().slice(0,10),
+          created_at: new Date().toISOString()
+        });
+      }
+      saveMerits(items);
+      cancelEditMerit();
+      renderMeritList();
+      alert(editId ? "Award updated." : "Award issued.");
     });
 
-    // ----- Training -----
+    function deleteMerit(id) {
+      if (!confirm("Delete this award?")) return;
+      saveMerits(getMerits().filter(m => m.id !== id));
+      renderMeritList();
+    }
+
+    // ========== TRAINING ==========
+    function renderTrainingList() {
+      const items = getTraining().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+      const el = document.getElementById("t-list");
+      if (!items.length) { el.innerHTML = `<p class="text-muted text-sm">No materials yet.</p>`; return; }
+      el.innerHTML = items.map(t => `
+        <div style="padding:0.65rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <div>
+            <strong>${esc(t.title)}</strong>
+            <div class="text-xs text-muted">${getRankName(t.min_rank_level)}+ • ${esc(t.category)}</div>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-outline btn-sm" onclick="editTraining('${t.id}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteTraining('${t.id}')">Delete</button>
+          </div>
+        </div>`).join("");
+    }
+
+    function editTraining(id) {
+      const t = getTraining().find(x => x.id === id);
+      if (!t) return;
+      document.getElementById("t-edit-id").value = t.id;
+      document.getElementById("t-title").value = t.title;
+      document.getElementById("t-desc").value = t.description;
+      document.getElementById("t-cat").value = t.category || "General";
+      document.getElementById("t-rank").value = t.min_rank_level;
+      document.getElementById("t-file").value = t.file_url || "";
+      document.getElementById("t-ext").value = t.external_url || "";
+      document.getElementById("t-form-title").textContent = "Edit Training Material";
+      document.getElementById("t-submit").textContent = "Save Changes";
+      document.getElementById("t-cancel").classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function cancelEditTraining() {
+      document.getElementById("training-form").reset();
+      document.getElementById("t-edit-id").value = "";
+      document.getElementById("t-form-title").textContent = "Add Training Material";
+      document.getElementById("t-submit").textContent = "Add Material";
+      document.getElementById("t-cancel").classList.add("hidden");
+      document.getElementById("t-rank").value = 1;
+    }
+
     document.getElementById("training-form").addEventListener("submit", e => {
       e.preventDefault();
+      const editId = document.getElementById("t-edit-id").value;
       const items = getTraining();
-      items.push({
-        id: uid(),
+      const payload = {
         title: document.getElementById("t-title").value.trim(),
         description: document.getElementById("t-desc").value.trim(),
         category: document.getElementById("t-cat").value.trim() || "General",
         min_rank_level: Number(document.getElementById("t-rank").value),
         file_url: document.getElementById("t-file").value.trim() || null,
         external_url: document.getElementById("t-ext").value.trim() || null,
-        created_at: new Date().toISOString()
-      });
+      };
+      if (editId) {
+        const idx = items.findIndex(x => x.id === editId);
+        if (idx >= 0) items[idx] = { ...items[idx], ...payload };
+      } else {
+        items.push({ id: uid(), ...payload, created_at: new Date().toISOString() });
+      }
       saveTraining(items);
-      document.getElementById("training-form").reset();
-      alert("Training material added.");
+      cancelEditTraining();
+      renderTrainingList();
+      alert(editId ? "Material updated." : "Material added.");
     });
 
-    // ----- Tutorials -----
+    function deleteTraining(id) {
+      if (!confirm("Delete this material?")) return;
+      saveTraining(getTraining().filter(t => t.id !== id));
+      renderTrainingList();
+    }
+
+    // ========== TUTORIALS ==========
+    function renderTutorialList() {
+      const items = getTutorials().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+      const el = document.getElementById("v-list");
+      if (!items.length) { el.innerHTML = `<p class="text-muted text-sm">No tutorials yet.</p>`; return; }
+      el.innerHTML = items.map(v => `
+        <div style="padding:0.65rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <div>
+            <strong>${esc(v.title)}</strong>
+            <div class="text-xs text-muted">${getRankName(v.min_rank_level)}+</div>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-outline btn-sm" onclick="editTutorial('${v.id}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteTutorial('${v.id}')">Delete</button>
+          </div>
+        </div>`).join("");
+    }
+
+    function editTutorial(id) {
+      const v = getTutorials().find(x => x.id === id);
+      if (!v) return;
+      document.getElementById("v-edit-id").value = v.id;
+      document.getElementById("v-title").value = v.title;
+      document.getElementById("v-desc").value = v.description;
+      document.getElementById("v-url").value = v.video_url;
+      document.getElementById("v-dur").value = v.duration_minutes || "";
+      document.getElementById("v-rank").value = v.min_rank_level;
+      document.getElementById("v-form-title").textContent = "Edit Tutorial";
+      document.getElementById("v-submit").textContent = "Save Changes";
+      document.getElementById("v-cancel").classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function cancelEditTutorial() {
+      document.getElementById("tutorial-form").reset();
+      document.getElementById("v-edit-id").value = "";
+      document.getElementById("v-form-title").textContent = "Add Tutorial";
+      document.getElementById("v-submit").textContent = "Add Tutorial";
+      document.getElementById("v-cancel").classList.add("hidden");
+      document.getElementById("v-rank").value = 1;
+    }
+
     document.getElementById("tutorial-form").addEventListener("submit", e => {
       e.preventDefault();
+      const editId = document.getElementById("v-edit-id").value;
       const items = getTutorials();
-      items.push({
-        id: uid(),
+      const payload = {
         title: document.getElementById("v-title").value.trim(),
         description: document.getElementById("v-desc").value.trim(),
         video_url: document.getElementById("v-url").value.trim(),
         duration_minutes: Number(document.getElementById("v-dur").value) || null,
         min_rank_level: Number(document.getElementById("v-rank").value),
-        created_at: new Date().toISOString()
-      });
+      };
+      if (editId) {
+        const idx = items.findIndex(x => x.id === editId);
+        if (idx >= 0) items[idx] = { ...items[idx], ...payload };
+      } else {
+        items.push({ id: uid(), ...payload, created_at: new Date().toISOString() });
+      }
       saveTutorials(items);
-      document.getElementById("tutorial-form").reset();
-      alert("Tutorial added.");
+      cancelEditTutorial();
+      renderTutorialList();
+      alert(editId ? "Tutorial updated." : "Tutorial added.");
     });
 
-    // ----- Links -----
+    function deleteTutorial(id) {
+      if (!confirm("Delete this tutorial?")) return;
+      saveTutorials(getTutorials().filter(v => v.id !== id));
+      renderTutorialList();
+    }
+
+    // ========== LINKS ==========
+    function renderLinkList() {
+      const items = getLinks();
+      const el = document.getElementById("l-list");
+      if (!items.length) { el.innerHTML = `<p class="text-muted text-sm">No links yet.</p>`; return; }
+      el.innerHTML = items.map(l => `
+        <div style="padding:0.65rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <div>
+            <strong>${esc(l.name)}</strong>
+            <div class="text-xs text-muted">v${esc(l.version)}</div>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-outline btn-sm" onclick="editLink('${l.id}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteLink('${l.id}')">Delete</button>
+          </div>
+        </div>`).join("");
+    }
+
+    function editLink(id) {
+      const l = getLinks().find(x => x.id === id);
+      if (!l) return;
+      document.getElementById("l-edit-id").value = l.id;
+      document.getElementById("l-name").value = l.name;
+      document.getElementById("l-desc").value = l.description;
+      document.getElementById("l-ver").value = l.version || "1.0.0";
+      document.getElementById("l-web").value = l.web_url || "";
+      document.getElementById("l-desk").value = l.desktop_url || "";
+      document.getElementById("l-form-title").textContent = "Edit Link";
+      document.getElementById("l-submit").textContent = "Save Changes";
+      document.getElementById("l-cancel").classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function cancelEditLink() {
+      document.getElementById("link-form").reset();
+      document.getElementById("l-edit-id").value = "";
+      document.getElementById("l-form-title").textContent = "Add Tactical Centre Link";
+      document.getElementById("l-submit").textContent = "Add Link";
+      document.getElementById("l-cancel").classList.add("hidden");
+    }
+
     document.getElementById("link-form").addEventListener("submit", e => {
       e.preventDefault();
-      const links = getLinks();
-      links.push({
-        id: uid(),
+      const editId = document.getElementById("l-edit-id").value;
+      const items = getLinks();
+      const payload = {
         name: document.getElementById("l-name").value.trim(),
         description: document.getElementById("l-desc").value.trim(),
         version: document.getElementById("l-ver").value.trim() || "1.0.0",
         web_url: document.getElementById("l-web").value.trim() || null,
         desktop_url: document.getElementById("l-desk").value.trim() || null,
         is_active: true
-      });
-      saveLinks(links);
-      document.getElementById("link-form").reset();
-      alert("Link added.");
+      };
+      if (editId) {
+        const idx = items.findIndex(x => x.id === editId);
+        if (idx >= 0) items[idx] = { ...items[idx], ...payload };
+      } else {
+        items.push({ id: uid(), ...payload });
+      }
+      saveLinks(items);
+      cancelEditLink();
+      renderLinkList();
+      alert(editId ? "Link updated." : "Link added.");
     });
 
-    // ----- Users -----
+    function deleteLink(id) {
+      if (!confirm("Delete this link?")) return;
+      saveLinks(getLinks().filter(l => l.id !== id));
+      renderLinkList();
+    }
+
+    // ========== USERS ==========
     function renderUsers() {
       if (session.role !== "admin") {
         document.getElementById("user-list").innerHTML = `<p class="text-muted text-sm">Only admins can manage users.</p>`;
@@ -337,20 +617,29 @@
       }
       const users = getUsers();
       document.getElementById("user-list").innerHTML = users.map(u => `
-        <div style="padding:0.7rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <div style="padding:0.75rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
           <div>
             <strong>${esc(u.username)}</strong>
-            <span class="text-xs text-muted" style="margin-left:0.5rem;">${u.role} • Rank ${u.rank_level}</span>
+            <span class="text-xs text-muted" style="margin-left:0.5rem;">
+              <span style="color:${u.role==="admin"?"#fbbf24":u.role==="moderator"?"#60a5fa":"#9ca3af"}">${u.role}</span>
+              • ${getRankName(u.rank_level)}
+            </span>
           </div>
-          <div class="flex gap-2">
-            <select class="select" style="width:auto;padding:0.3rem 0.5rem;font-size:0.8rem;" onchange="setRank('${u.id}', this.value)">
-              ${[1,2,3,4,5,6,7,8,9].map(l => `<option value="${l}" ${u.rank_level==l?"selected":""}>${getRankName(l)}</option>`).join("")}
-            </select>
-            <select class="select" style="width:auto;padding:0.3rem 0.5rem;font-size:0.8rem;" onchange="setRole('${u.id}', this.value)">
-              <option value="member" ${u.role==="member"?"selected":""}>member</option>
-              <option value="moderator" ${u.role==="moderator"?"selected":""}>moderator</option>
-              <option value="admin" ${u.role==="admin"?"selected":""}>admin</option>
-            </select>
+          <div class="flex gap-2 items-center">
+            <div>
+              <div class="text-xs text-muted" style="margin-bottom:0.15rem;">Rank</div>
+              <select class="select" style="width:auto;padding:0.3rem 0.5rem;font-size:0.8rem;" onchange="setRank('${u.id}', this.value)">
+                ${rankOptions(u.rank_level)}
+              </select>
+            </div>
+            <div>
+              <div class="text-xs text-muted" style="margin-bottom:0.15rem;">Role</div>
+              <select class="select" style="width:auto;padding:0.3rem 0.5rem;font-size:0.8rem;" onchange="setRole('${u.id}', this.value)">
+                <option value="member" ${u.role==="member"?"selected":""}>member</option>
+                <option value="moderator" ${u.role==="moderator"?"selected":""}>moderator</option>
+                <option value="admin" ${u.role==="admin"?"selected":""}>admin</option>
+              </select>
+            </div>
           </div>
         </div>`).join("");
     }
@@ -366,7 +655,34 @@
       if (u) { u.role = role; saveUsers(users); renderUsers(); }
     }
 
-    // ----- Import -----
+    document.getElementById("new-admin-form").addEventListener("submit", e => {
+      e.preventDefault();
+      if (session.role !== "admin") { alert("Only admins can create other admins."); return; }
+      const username = document.getElementById("na-username").value.trim();
+      const password = document.getElementById("na-password").value;
+      const rank = Number(document.getElementById("na-rank").value);
+      const alertBox = document.getElementById("new-admin-alert");
+      const users = getUsers();
+      if (users.find(u => u.username.toLowerCase() === username.toLowerCase())) {
+        alertBox.textContent = "Username already taken.";
+        alertBox.className = "alert alert-error";
+        alertBox.classList.remove("hidden");
+        return;
+      }
+      users.push({
+        id: uid(), username, password, role: "admin", rank_level: rank,
+        created_at: new Date().toISOString()
+      });
+      saveUsers(users);
+      document.getElementById("new-admin-form").reset();
+      document.getElementById("na-rank").value = 22;
+      alertBox.textContent = "Admin account created: " + username;
+      alertBox.className = "alert alert-success";
+      alertBox.classList.remove("hidden");
+      renderUsers();
+    });
+
+    // ========== IMPORT ==========
     async function doImport() {
       const file = document.getElementById("import-file").files[0];
       const msg = document.getElementById("import-msg");
@@ -383,12 +699,7 @@
       }
     }
 
-    function esc(s) {
-      if (!s) return "";
-      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    }
-
-    // Initial
+    // Init
     renderReportList();
   </script>
 </body>
