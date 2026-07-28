@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Tactical Archive – Login</title>
-  <link rel="stylesheet" href="css/style.css?v=s2" />
+  <link rel="stylesheet" href="css/style.css?v=s3" />
   <style>
     .input { font-size: 16px !important; min-height: 44px; -webkit-appearance: none; border-radius: 8px; }
     .btn { min-height: 48px; font-size: 1rem; touch-action: manipulation; }
@@ -18,7 +18,7 @@
       <div class="login-header">
         <div style="font-size:2.5rem;color:var(--accent);margin-bottom:0.5rem;">◆</div>
         <h1>TACTICAL ARCHIVE</h1>
-        <p>Shared unit database · worldwide</p>
+        <p>Shared unit database · username login</p>
       </div>
       <div class="panel">
         <h2 class="text-center" style="font-size:1.1rem;margin-bottom:1.2rem;">Login</h2>
@@ -35,18 +35,19 @@
           </div>
           <button type="submit" class="btn w-full" id="submit-btn">Login</button>
         </form>
-        <p class="text-center text-xs text-muted mt-4">Accounts are issued by unit leadership.</p>
+        <p class="text-center text-xs text-muted mt-4">Accounts are issued by unit leadership. No email required.</p>
         <div id="status">Connecting…</div>
       </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=s2"></script>
-  <script src="js/data.js?v=s2"></script>
-  <script src="js/ranks-icons.js?v=s2"></script>
+  <script src="js/config.js?v=s3"></script>
+  <script src="js/data.js?v=s3"></script>
+  <script src="js/ranks-icons.js?v=s3"></script>
   <script>
     try { showVersion(); } catch (e) {}
+
     var alertBox = document.getElementById("alert");
     var btn = document.getElementById("submit-btn");
     var status = document.getElementById("status");
@@ -56,18 +57,36 @@
       alertBox.className = "alert alert-error";
       alertBox.classList.remove("hidden");
     }
+    function resetBtn() {
+      btn.disabled = false;
+      btn.textContent = "Login";
+    }
 
     (async function init() {
-      if (!window.TA_CONFIG || String(window.TA_CONFIG.SUPABASE_ANON_KEY).indexOf("PASTE_") === 0) {
-        status.textContent = "Config missing — edit js/config.js with your anon key";
+      try {
+        if (!window.supabase || !window.supabase.createClient) {
+          status.textContent = "ERROR: Supabase library failed to load";
+          status.style.color = "#f87171";
+          return;
+        }
+        if (!window.TA_CONFIG || String(window.TA_CONFIG.SUPABASE_ANON_KEY || "").indexOf("PASTE_") === 0) {
+          status.textContent = "ERROR: Paste anon key into js/config.js";
+          status.style.color = "#f87171";
+          return;
+        }
+        if (!initSupabase()) {
+          status.textContent = "ERROR: Could not connect";
+          status.style.color = "#f87171";
+          return;
+        }
+        status.textContent = "Connected · " + (window.SITE_VERSION || "");
+        status.style.color = "#86efac";
+        var user = await loadSession();
+        if (user) window.location.replace("dashboard.html");
+      } catch (err) {
+        status.textContent = "Init error: " + (err.message || err);
         status.style.color = "#f87171";
-        return;
       }
-      initSupabase();
-      status.textContent = "Connected · build " + (window.SITE_VERSION || "");
-      status.style.color = "#86efac";
-      var user = await loadSession();
-      if (user) window.location.replace("dashboard.html");
     })();
 
     document.getElementById("auth-form").addEventListener("submit", async function(e) {
@@ -76,16 +95,32 @@
       var username = document.getElementById("username").value.trim();
       var password = document.getElementById("password").value;
       if (!username || !password) { showError("Enter username and password."); return; }
+
       btn.disabled = true;
       btn.textContent = "Please wait...";
-      var result = await login(username, password);
-      if (result.error) {
-        showError(result.error);
-        btn.disabled = false;
-        btn.textContent = "Login";
-        return;
+
+      var timedOut = false;
+      var timer = setTimeout(function() {
+        timedOut = true;
+        showError("Login timed out. Check config.js anon key and your connection.");
+        resetBtn();
+      }, 15000);
+
+      try {
+        var result = await login(username, password);
+        clearTimeout(timer);
+        if (timedOut) return;
+        if (result && result.error) {
+          showError(result.error);
+          resetBtn();
+          return;
+        }
+        window.location.replace("dashboard.html");
+      } catch (err) {
+        clearTimeout(timer);
+        showError("Login error: " + (err && err.message ? err.message : String(err)));
+        resetBtn();
       }
-      window.location.replace("dashboard.html");
     });
   </script>
 </body>

@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=s2" />
+  <link rel="stylesheet" href="css/style.css?v=s3" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=s2"></script>
-  <script src="js/data.js?v=s2"></script>
-  <script src="js/ranks-icons.js?v=s2"></script>
+  <script src="js/config.js?v=s3"></script>
+  <script src="js/data.js?v=s3"></script>
+  <script src="js/ranks-icons.js?v=s3"></script>
 </head>
 <body>
   <div id="app"><p class="text-muted text-center" style="padding:3rem;">Loading…</p></div>
@@ -67,7 +67,7 @@
       h += '</div>';
       h += `<div class="panel mb-4">
         <h3 style="font-size:1rem;margin-bottom:0.8rem;">Create Member Account</h3>
-        <p class="text-sm text-muted mb-3">Creates a Supabase auth user + profile. They log in with this email worldwide.</p>
+        <p class="text-sm text-muted mb-3">Creates a username + password account. They log in from any device worldwide.</p>
         <div id="create-alert" class="hidden"></div>
         <form id="create-form">
           <div class="form-group"><label>Username (display)</label><input type="text" id="c-user" class="input" required minlength="3" /></div>

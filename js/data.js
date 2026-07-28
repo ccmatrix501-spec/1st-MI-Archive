@@ -31,6 +31,7 @@ const RANKS = [
 // Username-only auth: Supabase requires an email field internally.
 // We map username → username@unit.local so members never see emails.
 function usernameToEmail(username) {
+  // Always map username -> username@unit.local (no real emails in the UI)
   const clean = String(username || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
   return clean + "@unit.local";
 }
@@ -127,25 +128,57 @@ function getSession() {
 async function login(username, password) {
   const client = db();
   if (!client) return { error: "Supabase not configured. Edit js/config.js" };
+
   const email = usernameToEmail(username);
-  const { data, error } = await client.auth.signInWithPassword({ email, password });
+
+  let data, error;
+  try {
+    const res = await client.auth.signInWithPassword({ email, password });
+    data = res.data;
+    error = res.error;
+  } catch (e) {
+    return { error: "Network error: " + (e.message || String(e)) };
+  }
+
   if (error) {
-    // Friendlier message — never mention email
     const msg = error.message || "Login failed";
-    if (/invalid login|invalid credentials|email/i.test(msg)) {
-      return { error: "Invalid username or password" };
+    if (/invalid login|invalid credentials/i.test(msg)) {
+      return { error: "Invalid email/username or password" };
+    }
+    if (/email not confirmed/i.test(msg)) {
+      return { error: "Email not confirmed. Disable Confirm email in Supabase Auth settings." };
     }
     return { error: msg };
   }
+  if (!data || !data.user) return { error: "Login failed (no user)." };
+
   _session = data.session;
-  const { data: profile, error: pErr } = await client
-    .from("profiles")
-    .select("*")
-    .eq("id", data.user.id)
-    .single();
-  if (pErr || !profile) {
-    return { error: "Logged in but profile missing. Check SQL setup / trigger." };
+
+  let profile = null;
+  try {
+    const res = await client.from("profiles").select("*").eq("id", data.user.id).maybeSingle();
+    if (res.error) return { error: "Profile read failed: " + res.error.message };
+    profile = res.data;
+  } catch (e) {
+    return { error: "Profile error: " + (e.message || String(e)) };
   }
+
+  if (!profile) {
+    const uname =
+      (data.user.user_metadata && data.user.user_metadata.username) ||
+      (data.user.email ? data.user.email.split("@")[0] : "user");
+    const ins = await client.from("profiles").insert({
+      id: data.user.id,
+      username: uname,
+      role: "member",
+      rank_level: 1
+    }).select("*").maybeSingle();
+    if (ins.error) {
+      return { error: "No profile row. Run the SQL profile fix. (" + ins.error.message + ")" };
+    }
+    profile = ins.data;
+  }
+
   _profile = profile;
   return { user: getAppUser() };
 }
