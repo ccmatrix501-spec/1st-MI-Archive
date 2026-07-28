@@ -356,6 +356,58 @@
     return { user: res.data && res.data.user };
   }
 
+
+  function getAdminClient() {
+    var cfg = global.TA_CONFIG || {};
+    if (!cfg.SUPABASE_SERVICE_ROLE_KEY || String(cfg.SUPABASE_SERVICE_ROLE_KEY).indexOf("PASTE_") === 0) {
+      return null;
+    }
+    if (!global.supabase || !global.supabase.createClient) return null;
+    return global.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+  }
+
+  async function adminUpdateUsername(userId, newUsername) {
+    newUsername = String(newUsername || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+    if (newUsername.length < 3) return { error: "Username too short" };
+    var admin = getAdminClient();
+    if (!admin) return { error: "Add SUPABASE_SERVICE_ROLE_KEY to js/config.js to change login usernames." };
+
+    // Check taken
+    var existing = await db().from("profiles").select("id").eq("username", newUsername).maybeSingle();
+    if (existing.data && existing.data.id !== userId) return { error: "Username already taken" };
+
+    var newEmail = newUsername + "@unit.local";
+    var authRes = await admin.auth.admin.updateUserById(userId, { email: newEmail, email_confirm: true });
+    if (authRes.error) return { error: "Auth update failed: " + authRes.error.message };
+
+    var up = await admin.from("profiles").update({ username: newUsername }).eq("id", userId);
+    if (up.error) return { error: "Profile update failed: " + up.error.message };
+    return { ok: true };
+  }
+
+  async function adminSetPassword(userId, newPassword) {
+    if (!newPassword || newPassword.length < 6) return { error: "Password min 6 characters" };
+    var admin = getAdminClient();
+    if (!admin) return { error: "Add SUPABASE_SERVICE_ROLE_KEY to js/config.js to reset passwords." };
+    var res = await admin.auth.admin.updateUserById(userId, { password: newPassword });
+    if (res.error) return { error: res.error.message };
+    return { ok: true };
+  }
+
+  async function adminDeleteUser(userId) {
+    var admin = getAdminClient();
+    if (!admin) return { error: "Add SUPABASE_SERVICE_ROLE_KEY to js/config.js to delete accounts." };
+    // profiles cascade from auth.users if FK set; delete auth user
+    var res = await admin.auth.admin.deleteUser(userId);
+    if (res.error) return { error: res.error.message };
+    // cleanup profile if still there
+    await admin.from("profiles").delete().eq("id", userId);
+    return { ok: true };
+  }
+
+
   // Export to window (no name collision with CDN global.supabase)
   global.RANKS = RANKS;
   global.usernameToEmail = usernameToEmail;
@@ -402,6 +454,10 @@
   global.applyBackground = applyBackground;
   global.showVersion = showVersion;
   global.createMemberAccount = createMemberAccount;
+  global.getAdminClient = getAdminClient;
+  global.adminUpdateUsername = adminUpdateUsername;
+  global.adminSetPassword = adminSetPassword;
+  global.adminDeleteUser = adminDeleteUser;
 
   initSupabase();
 })(typeof window !== "undefined" ? window : this);
