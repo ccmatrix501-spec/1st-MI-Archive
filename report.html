@@ -5,207 +5,117 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Report – Tactical Archive</title>
   <link rel="stylesheet" href="css/style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/data.js"></script>
 </head>
 <body>
-  <nav class="navbar">
-    <div class="nav-inner">
-      <div class="nav-brand">
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-        </svg>
-        TACTICAL ARCHIVE
-      </div>
-      <div class="nav-links">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="reports.html" class="active">Reports</a>
-        <a href="merits.html">Merits</a>
-        <a href="training.html">Training</a>
-        <a href="tutorials.html">Tutorials</a>
-        <a href="tactical-centre.html">Tactical Centre</a>
-        <a href="admin.html" id="nav-admin" class="hidden" style="color:#fbbf24;">Admin</a>
-      </div>
-      <div class="nav-user">
-        <div>
-          <div id="nav-username" style="font-weight:600;">—</div>
-          <div id="nav-rank" class="rank text-xs">—</div>
-        </div>
-        <button class="btn-logout" onclick="logout()">Logout</button>
-      </div>
-    </div>
-  </nav>
+  <script>renderNavbar("reports.html");</script>
 
   <div class="container">
-    <a href="reports.html" class="text-sm text-muted" style="display:inline-flex;align-items:center;gap:0.35rem;margin-bottom:1.25rem;">
-      ← Back to Reports
-    </a>
+    <a href="reports.html" class="text-sm text-muted" style="display:inline-block;margin-bottom:1.2rem;">← Back to Reports</a>
+    <div id="content"></div>
 
-    <div id="report-content">
-      <p class="text-muted text-center" style="padding:3rem 0;">Loading...</p>
-    </div>
-
-    <!-- Comments -->
-    <div class="panel mt-6" id="comments-section" style="display:none;">
-      <h3 style="margin-bottom:1rem;font-size:1.1rem;">Discussion</h3>
-      <div id="comments-list"></div>
-      <form id="comment-form" class="mt-4 flex gap-2">
-        <input type="text" id="comment-input" class="input" placeholder="Add a comment..." required />
+    <div class="panel mt-6" id="comments-box" style="display:none;">
+      <h3 style="margin-bottom:1rem;">Discussion</h3>
+      <div id="comments"></div>
+      <form id="cform" class="mt-4 flex gap-2">
+        <input type="text" id="cinput" class="input" placeholder="Add a comment..." required />
         <button type="submit" class="btn">Post</button>
       </form>
     </div>
   </div>
 
-  <script src="js/config.js"></script>
-  <script src="js/supabase-client.js"></script>
-  <script src="js/auth.js"></script>
   <script>
-    initSupabase();
-    let currentProfile = null;
-    let reportId = null;
+    const session = requireAuth();
+    if (!session) throw new Error("redirect");
 
-    (async () => {
-      currentProfile = await protectPage();
-      if (!currentProfile) return;
+    const id = new URLSearchParams(location.search).get("id");
+    const reports = getReports();
+    const report = reports.find(r => r.id === id);
+    const box = document.getElementById("content");
 
-      const params = new URLSearchParams(window.location.search);
-      reportId = params.get("id");
-      if (!reportId) {
-        document.getElementById("report-content").innerHTML = `<div class="alert alert-error">No report specified.</div>`;
-        return;
-      }
-
-      const { data: report, error } = await supabase
-        .from("reports")
-        .select(`
-          *,
-          author:profiles!reports_author_id_fkey (username)
-        `)
-        .eq("id", reportId)
-        .single();
-
-      const container = document.getElementById("report-content");
-
-      if (error || !report) {
-        container.innerHTML = `
-          <div class="panel lock-overlay">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-            <h3 style="margin-bottom:0.5rem;">Restricted Access</h3>
-            <p class="text-muted text-sm">You do not have sufficient rank to view this report, or it does not exist.</p>
-          </div>`;
-        return;
-      }
-
-      // Extra client-side check
-      if (!canAccess(currentProfile.rank_level, report.min_rank_level)) {
-        container.innerHTML = `
-          <div class="panel lock-overlay">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-            <h3 style="margin-bottom:0.5rem;">Restricted Access</h3>
-            <p class="text-muted text-sm">
-              This report requires <strong style="color:var(--warning);">${getRankName(report.min_rank_level)}</strong> or higher.
-              <br>Your rank: ${getRankName(currentProfile.rank_level)}
-            </p>
-          </div>`;
-        return;
-      }
-
+    if (!report || report.status !== "published") {
+      box.innerHTML = `<div class="panel text-center" style="padding:3rem;"><p class="text-muted">Report not found.</p></div>`;
+    } else if (!canAccess(session.rank_level, report.min_rank_level)) {
+      box.innerHTML = `
+        <div class="panel text-center" style="padding:3rem;">
+          <div style="font-size:2rem;margin-bottom:0.75rem;">🔒</div>
+          <h3 style="margin-bottom:0.4rem;">Restricted Access</h3>
+          <p class="text-muted text-sm">
+            Requires <strong style="color:var(--warning);">${getRankName(report.min_rank_level)}</strong> or higher.<br>
+            Your rank: ${getRankName(session.rank_level)}
+          </p>
+        </div>`;
+    } else {
       const date = new Date(report.created_at).toLocaleString("en-GB", {
-        day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
+        day:"2-digit", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit"
       });
 
-      let filesHtml = "";
-      if (report.file_urls && report.file_urls.length > 0) {
-        filesHtml = `
-          <div style="margin-top:1.75rem;padding-top:1.25rem;border-top:1px solid var(--border);">
-            <h4 class="text-sm" style="margin-bottom:0.75rem;">Attachments</h4>
-            <div class="flex gap-2" style="flex-wrap:wrap;">
-              ${report.file_urls.map((url, i) => `
-                <a href="${url}" target="_blank" rel="noopener" class="btn text-sm">Download File ${i + 1}</a>
-              `).join("")}
-            </div>
-          </div>`;
-      }
-
-      container.innerHTML = `
+      box.innerHTML = `
         <article class="panel">
-          <div class="flex gap-2" style="flex-wrap:wrap;margin-bottom:1rem;">
+          <div class="flex gap-2" style="flex-wrap:wrap;margin-bottom:0.9rem;">
             ${report.is_classified ? '<span class="badge badge-classified">CLASSIFIED</span>' : ''}
             <span class="badge badge-rank rank-${report.min_rank_level}">${getRankName(report.min_rank_level)}+ required</span>
           </div>
-          <h1 style="font-size:1.6rem;margin-bottom:0.75rem;">${escapeHtml(report.title)}</h1>
-          <div class="text-sm text-muted" style="margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--border);">
-            ${report.author?.username || "Unknown"} • ${date}
+          <h1 style="font-size:1.55rem;margin-bottom:0.6rem;">${esc(report.title)}</h1>
+          <div class="text-sm text-muted" style="margin-bottom:1.4rem;padding-bottom:0.9rem;border-bottom:1px solid var(--border);">
+            ${esc(report.author_name || "Unknown")} • ${date}
           </div>
           ${report.summary ? `
-            <div class="panel" style="background:var(--bg);margin-bottom:1.5rem;">
-              <div class="text-xs text-muted" style="margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">Summary</div>
-              <p>${escapeHtml(report.summary)}</p>
+            <div class="panel" style="background:var(--bg);margin-bottom:1.4rem;">
+              <div class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.2rem;">Summary</div>
+              <p>${esc(report.summary)}</p>
             </div>` : ''}
-          <div style="white-space:pre-wrap;line-height:1.65;">${escapeHtml(report.content)}</div>
-          ${filesHtml}
+          <div style="white-space:pre-wrap;line-height:1.65;">${esc(report.content)}</div>
+          ${report.file_url ? `
+            <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);">
+              <a href="${esc(report.file_url)}" target="_blank" class="btn btn-sm">Open / Download Attachment</a>
+            </div>` : ''}
         </article>`;
 
-      // Show comments
-      document.getElementById("comments-section").style.display = "block";
-      await loadComments();
-    })();
+      document.getElementById("comments-box").style.display = "block";
+      renderComments();
+    }
 
-    async function loadComments() {
-      const { data: comments } = await supabase
-        .from("comments")
-        .select(`*, author:profiles!comments_author_id_fkey (username)`)
-        .eq("parent_type", "report")
-        .eq("parent_id", reportId)
-        .order("created_at", { ascending: true });
-
-      const list = document.getElementById("comments-list");
-      if (!comments || comments.length === 0) {
-        list.innerHTML = `<p class="text-muted text-sm text-center" style="padding:1rem 0;">No comments yet.</p>`;
+    function renderComments() {
+      const all = getComments().filter(c => c.parent_type === "report" && c.parent_id === id);
+      const el = document.getElementById("comments");
+      if (all.length === 0) {
+        el.innerHTML = `<p class="text-muted text-sm text-center" style="padding:0.8rem 0;">No comments yet.</p>`;
         return;
       }
-
-      list.innerHTML = comments.map(c => {
-        const time = new Date(c.created_at).toLocaleString("en-GB", {
-          day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
-        });
-        return `
-          <div class="comment">
-            <div class="comment-meta">
-              <strong>${escapeHtml(c.author?.username || "Unknown")}</strong> • ${time}
-            </div>
-            <div class="text-sm">${escapeHtml(c.content)}</div>
-          </div>`;
+      el.innerHTML = all.map(c => {
+        const t = new Date(c.created_at).toLocaleString("en-GB", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" });
+        return `<div class="comment">
+          <div class="comment-meta"><strong>${esc(c.author_name)}</strong> • ${t}</div>
+          <div class="text-sm">${esc(c.content)}</div>
+        </div>`;
       }).join("");
     }
 
-    document.getElementById("comment-form").addEventListener("submit", async (e) => {
+    document.getElementById("cform").addEventListener("submit", e => {
       e.preventDefault();
-      const input = document.getElementById("comment-input");
+      const input = document.getElementById("cinput");
       const content = input.value.trim();
       if (!content) return;
 
-      const { error } = await supabase.from("comments").insert({
+      const comments = getComments();
+      comments.push({
+        id: uid(),
         content,
-        author_id: currentProfile.id,
+        author_id: session.id,
+        author_name: session.username,
         parent_type: "report",
-        parent_id: reportId,
+        parent_id: id,
+        created_at: new Date().toISOString()
       });
-
-      if (!error) {
-        input.value = "";
-        await loadComments();
-      } else {
-        alert("Failed to post comment: " + error.message);
-      }
+      saveComments(comments);
+      input.value = "";
+      renderComments();
     });
 
-    function escapeHtml(str) {
-      if (!str) return "";
-      return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    function esc(s) {
+      if (!s) return "";
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     }
   </script>
 </body>

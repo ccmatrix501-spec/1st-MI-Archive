@@ -5,90 +5,54 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tactical Centre – Tactical Archive</title>
   <link rel="stylesheet" href="css/style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/data.js"></script>
 </head>
 <body>
-  <nav class="navbar">
-    <div class="nav-inner">
-      <div class="nav-brand">
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-        </svg>
-        TACTICAL ARCHIVE
-      </div>
-      <div class="nav-links">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="reports.html">Reports</a>
-        <a href="merits.html">Merits</a>
-        <a href="training.html">Training</a>
-        <a href="tutorials.html">Tutorials</a>
-        <a href="tactical-centre.html" class="active">Tactical Centre</a>
-        <a href="admin.html" id="nav-admin" class="hidden" style="color:#fbbf24;">Admin</a>
-      </div>
-      <div class="nav-user">
-        <div>
-          <div id="nav-username" style="font-weight:600;">—</div>
-          <div id="nav-rank" class="rank text-xs">—</div>
-        </div>
-        <button class="btn-logout" onclick="logout()">Logout</button>
-      </div>
-    </div>
-  </nav>
+  <script>renderNavbar("tactical-centre.html");</script>
 
   <div class="container">
     <div class="mb-6">
-      <h1 style="font-size:1.5rem;">Tactical Centre</h1>
+      <h1 style="font-size:1.45rem;">Tactical Centre</h1>
       <p class="text-muted text-sm">Official web application and desktop client access</p>
     </div>
-    <div id="links-list" class="card-grid"></div>
+    <div id="list" class="card-grid"></div>
 
     <div class="panel mt-6" style="border-left:4px solid var(--accent);">
       <p class="text-sm text-muted">
-        The Tactical Centre is the primary operational tool for the unit. Always use the latest version. Report issues to your chain of command or site moderators.
+        Always use the latest version. Report issues to your chain of command or site moderators.
       </p>
     </div>
   </div>
 
-  <script src="js/config.js"></script>
-  <script src="js/supabase-client.js"></script>
-  <script src="js/auth.js"></script>
   <script>
-    initSupabase();
-    (async () => {
-      const profile = await protectPage();
-      if (!profile) return;
+    const session = requireAuth();
+    if (!session) throw new Error("redirect");
 
-      const { data: links } = await supabase
-        .from("tactical_centre_links")
-        .select("*")
-        .eq("is_active", true)
-        .order("updated_at", { ascending: false });
+    const links = getLinks().filter(l => l.is_active !== false);
+    const list = document.getElementById("list");
 
-      const list = document.getElementById("links-list");
-      if (!links || links.length === 0) {
-        list.innerHTML = `
-          <div class="panel text-center" style="padding:3rem;grid-column:1/-1;">
-            <p class="text-muted">No active Tactical Centre links configured.</p>
-            <p class="text-xs text-muted mt-2">Contact an administrator to add the web and desktop application links.</p>
-          </div>`;
-        return;
-      }
-
+    if (links.length === 0) {
+      list.innerHTML = `
+        <div class="panel text-center" style="padding:3rem;grid-column:1/-1;">
+          <p class="text-muted">No active links configured.</p>
+          <p class="text-xs text-muted mt-2">An admin can add them in the Admin panel.</p>
+        </div>`;
+    } else {
       list.innerHTML = links.map(link => `
         <div class="card">
-          <h3>${escapeHtml(link.name)}</h3>
-          <p class="text-xs text-muted">Version ${escapeHtml(link.version)}</p>
-          <p class="text-sm text-muted mt-2">${escapeHtml(link.description)}</p>
+          <h3>${esc(link.name)}</h3>
+          <p class="text-xs text-muted">Version ${esc(link.version || "1.0")}</p>
+          <p class="text-sm text-muted mt-2">${esc(link.description)}</p>
           <div class="mt-4 flex gap-2" style="flex-wrap:wrap;">
-            ${link.web_url ? `<a href="${link.web_url}" target="_blank" class="btn text-sm">Open Web Version</a>` : ''}
-            ${link.desktop_download_url ? `<a href="${link.desktop_download_url}" target="_blank" class="btn btn-outline text-sm">Download Desktop</a>` : ''}
+            ${link.web_url ? `<a href="${esc(link.web_url)}" target="_blank" class="btn btn-sm">Open Web Version</a>` : ''}
+            ${link.desktop_url ? `<a href="${esc(link.desktop_url)}" target="_blank" class="btn btn-outline btn-sm">Download Desktop</a>` : ''}
           </div>
         </div>`).join("");
-    })();
+    }
 
-    function escapeHtml(str) {
-      if (!str) return "";
-      return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    function esc(s) {
+      if (!s) return "";
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     }
   </script>
 </body>

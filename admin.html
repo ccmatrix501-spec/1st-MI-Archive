@@ -5,182 +5,391 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin – Tactical Archive</title>
   <link rel="stylesheet" href="css/style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/data.js"></script>
 </head>
 <body>
-  <nav class="navbar">
-    <div class="nav-inner">
-      <div class="nav-brand">
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-        </svg>
-        TACTICAL ARCHIVE
-      </div>
-      <div class="nav-links">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="reports.html">Reports</a>
-        <a href="merits.html">Merits</a>
-        <a href="training.html">Training</a>
-        <a href="tutorials.html">Tutorials</a>
-        <a href="tactical-centre.html">Tactical Centre</a>
-        <a href="admin.html" class="active" style="color:#fbbf24;">Admin</a>
-      </div>
-      <div class="nav-user">
-        <div>
-          <div id="nav-username" style="font-weight:600;">—</div>
-          <div id="nav-rank" class="rank text-xs">—</div>
-        </div>
-        <button class="btn-logout" onclick="logout()">Logout</button>
-      </div>
-    </div>
-  </nav>
+  <script>renderNavbar("admin.html");</script>
 
   <div class="container">
     <div class="mb-6">
-      <h1 style="font-size:1.5rem;">Admin Panel</h1>
-      <p class="text-muted text-sm">Create reports and manage archive content. Role: <span id="admin-role" style="color:#fbbf24;text-transform:capitalize;"></span></p>
+      <h1 style="font-size:1.45rem;">Admin Panel</h1>
+      <p class="text-muted text-sm">Manage content, ranks and users</p>
     </div>
 
-    <!-- Create Report Form -->
-    <div class="panel mb-6">
-      <h2 style="font-size:1.15rem;margin-bottom:1rem;">Create New Report</h2>
-      <div id="form-alert" class="hidden"></div>
-      <form id="report-form">
-        <div class="form-group">
-          <label>Title</label>
-          <input type="text" id="r-title" class="input" required />
-        </div>
-        <div class="form-group">
-          <label>Summary (optional)</label>
-          <input type="text" id="r-summary" class="input" />
-        </div>
-        <div class="form-group">
-          <label>Content</label>
-          <textarea id="r-content" class="textarea" required></textarea>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
-          <div class="form-group">
-            <label>Minimum Rank</label>
-            <select id="r-rank" class="select">
-              <option value="1">Recruit (1)</option>
-              <option value="2">Private (2)</option>
-              <option value="3">Corporal (3)</option>
-              <option value="4">Sergeant (4)</option>
-              <option value="5">Lieutenant (5)</option>
-              <option value="6">Captain (6)</option>
-              <option value="7">Major (7)</option>
-              <option value="8">Colonel (8)</option>
-              <option value="9">General (9)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Status</label>
-            <select id="r-status" class="select">
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-          <div class="form-group" style="display:flex;align-items:flex-end;">
-            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-              <input type="checkbox" id="r-classified" />
-              Classified
-            </label>
-          </div>
-        </div>
-        <button type="submit" class="btn" id="create-btn">Create Report</button>
-      </form>
+    <!-- Tabs -->
+    <div class="flex gap-2 mb-6" style="flex-wrap:wrap;">
+      <button class="btn btn-sm" onclick="showTab('reports')">Reports</button>
+      <button class="btn btn-outline btn-sm" onclick="showTab('merits')">Merits</button>
+      <button class="btn btn-outline btn-sm" onclick="showTab('training')">Training</button>
+      <button class="btn btn-outline btn-sm" onclick="showTab('tutorials')">Tutorials</button>
+      <button class="btn btn-outline btn-sm" onclick="showTab('links')">Tactical Centre</button>
+      <button class="btn btn-outline btn-sm" onclick="showTab('users')">Users</button>
+      <button class="btn btn-outline btn-sm" onclick="showTab('data')">Export / Import</button>
     </div>
 
-    <!-- Existing Reports -->
-    <div class="panel">
-      <h2 style="font-size:1.15rem;margin-bottom:1rem;">Existing Reports</h2>
-      <div id="admin-reports-list">
-        <p class="text-muted text-sm">Loading...</p>
+    <!-- REPORTS TAB -->
+    <div id="tab-reports">
+      <div class="panel mb-6">
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;">Create Report</h2>
+        <div id="r-alert" class="hidden"></div>
+        <form id="report-form">
+          <div class="form-group">
+            <label>Title</label>
+            <input type="text" id="r-title" class="input" required />
+          </div>
+          <div class="form-group">
+            <label>Summary</label>
+            <input type="text" id="r-summary" class="input" />
+          </div>
+          <div class="form-group">
+            <label>Content</label>
+            <textarea id="r-content" class="textarea" required></textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.8rem;">
+            <div class="form-group">
+              <label>Min Rank</label>
+              <select id="r-rank" class="select">
+                <option value="1">Recruit</option><option value="2">Private</option>
+                <option value="3">Corporal</option><option value="4">Sergeant</option>
+                <option value="5">Lieutenant</option><option value="6">Captain</option>
+                <option value="7">Major</option><option value="8">Colonel</option>
+                <option value="9">General</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="r-status" class="select">
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+              </select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end;">
+              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+                <input type="checkbox" id="r-classified" /> Classified
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Attachment URL (optional)</label>
+            <input type="url" id="r-file" class="input" placeholder="https://..." />
+          </div>
+          <button type="submit" class="btn">Create Report</button>
+        </form>
+      </div>
+      <div class="panel">
+        <h3 style="margin-bottom:0.8rem;">Existing Reports</h3>
+        <div id="r-list"></div>
+      </div>
+    </div>
+
+    <!-- MERITS TAB -->
+    <div id="tab-merits" class="hidden">
+      <div class="panel mb-6">
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;">Issue Merit / Award</h2>
+        <form id="merit-form">
+          <div class="form-group"><label>Title</label><input type="text" id="m-title" class="input" required /></div>
+          <div class="form-group"><label>Description</label><textarea id="m-desc" class="textarea" required></textarea></div>
+          <div class="form-group"><label>Recipient Username</label><input type="text" id="m-recipient" class="input" required /></div>
+          <div class="form-group">
+            <label>Type</label>
+            <select id="m-type" class="select">
+              <option value="merit">Merit</option>
+              <option value="medal">Medal</option>
+              <option value="commendation">Commendation</option>
+              <option value="promotion">Promotion</option>
+            </select>
+          </div>
+          <div class="form-group"><label>File / Certificate URL (optional)</label><input type="url" id="m-file" class="input" /></div>
+          <button type="submit" class="btn">Issue Award</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- TRAINING TAB -->
+    <div id="tab-training" class="hidden">
+      <div class="panel mb-6">
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Training Material</h2>
+        <form id="training-form">
+          <div class="form-group"><label>Title</label><input type="text" id="t-title" class="input" required /></div>
+          <div class="form-group"><label>Description</label><textarea id="t-desc" class="textarea" required></textarea></div>
+          <div class="form-group"><label>Category</label><input type="text" id="t-cat" class="input" value="General" /></div>
+          <div class="form-group">
+            <label>Min Rank</label>
+            <select id="t-rank" class="select">
+              <option value="1">Recruit</option><option value="2">Private</option>
+              <option value="3">Corporal</option><option value="4">Sergeant</option>
+              <option value="5">Lieutenant</option><option value="6">Captain</option>
+              <option value="7">Major</option><option value="8">Colonel</option>
+              <option value="9">General</option>
+            </select>
+          </div>
+          <div class="form-group"><label>File URL</label><input type="url" id="t-file" class="input" /></div>
+          <div class="form-group"><label>External URL</label><input type="url" id="t-ext" class="input" /></div>
+          <button type="submit" class="btn">Add Material</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- TUTORIALS TAB -->
+    <div id="tab-tutorials" class="hidden">
+      <div class="panel mb-6">
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Tutorial</h2>
+        <form id="tutorial-form">
+          <div class="form-group"><label>Title</label><input type="text" id="v-title" class="input" required /></div>
+          <div class="form-group"><label>Description</label><textarea id="v-desc" class="textarea" required></textarea></div>
+          <div class="form-group"><label>Video URL (YouTube / Vimeo / direct)</label><input type="url" id="v-url" class="input" required /></div>
+          <div class="form-group"><label>Duration (minutes)</label><input type="number" id="v-dur" class="input" min="1" /></div>
+          <div class="form-group">
+            <label>Min Rank</label>
+            <select id="v-rank" class="select">
+              <option value="1">Recruit</option><option value="2">Private</option>
+              <option value="3">Corporal</option><option value="4">Sergeant</option>
+              <option value="5">Lieutenant</option><option value="6">Captain</option>
+              <option value="7">Major</option><option value="8">Colonel</option>
+              <option value="9">General</option>
+            </select>
+          </div>
+          <button type="submit" class="btn">Add Tutorial</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- LINKS TAB -->
+    <div id="tab-links" class="hidden">
+      <div class="panel mb-6">
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Tactical Centre Link</h2>
+        <form id="link-form">
+          <div class="form-group"><label>Name</label><input type="text" id="l-name" class="input" required /></div>
+          <div class="form-group"><label>Description</label><textarea id="l-desc" class="textarea" required></textarea></div>
+          <div class="form-group"><label>Version</label><input type="text" id="l-ver" class="input" value="1.0.0" /></div>
+          <div class="form-group"><label>Web URL</label><input type="url" id="l-web" class="input" /></div>
+          <div class="form-group"><label>Desktop Download URL</label><input type="url" id="l-desk" class="input" /></div>
+          <button type="submit" class="btn">Add Link</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- USERS TAB -->
+    <div id="tab-users" class="hidden">
+      <div class="panel">
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;">User Management</h2>
+        <p class="text-sm text-muted mb-4">Change ranks and roles. Only admins can do this.</p>
+        <div id="user-list"></div>
+      </div>
+    </div>
+
+    <!-- DATA TAB -->
+    <div id="tab-data" class="hidden">
+      <div class="panel mb-4">
+        <h2 style="font-size:1.1rem;margin-bottom:0.8rem;">Export Archive</h2>
+        <p class="text-sm text-muted mb-4">Download a JSON backup of all reports, merits, training, etc. Share this file with other members so they can import it.</p>
+        <button class="btn" onclick="exportData()">Download Backup JSON</button>
+      </div>
+      <div class="panel">
+        <h2 style="font-size:1.1rem;margin-bottom:0.8rem;">Import Archive</h2>
+        <p class="text-sm text-muted mb-4">Load a previously exported JSON file. This will overwrite current content (users are not imported).</p>
+        <input type="file" id="import-file" accept=".json" class="input mb-4" />
+        <button class="btn" onclick="doImport()">Import</button>
+        <div id="import-msg" class="mt-4 hidden"></div>
       </div>
     </div>
   </div>
 
-  <script src="js/config.js"></script>
-  <script src="js/supabase-client.js"></script>
-  <script src="js/auth.js"></script>
   <script>
-    initSupabase();
-    let currentProfile = null;
+    const session = requireStaff();
+    if (!session) throw new Error("redirect");
 
-    (async () => {
-      currentProfile = await protectPage();
-      if (!currentProfile) return;
+    function showTab(name) {
+      ["reports","merits","training","tutorials","links","users","data"].forEach(t => {
+        document.getElementById("tab-" + t).classList.add("hidden");
+      });
+      document.getElementById("tab-" + name).classList.remove("hidden");
+      if (name === "users") renderUsers();
+      if (name === "reports") renderReportList();
+    }
 
-      if (currentProfile.role !== "admin" && currentProfile.role !== "moderator") {
-        window.location.href = "dashboard.html";
-        return;
-      }
-
-      document.getElementById("admin-role").textContent = currentProfile.role;
-      await loadAdminReports();
-    })();
-
-    async function loadAdminReports() {
-      const { data } = await supabase
-        .from("reports")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      const list = document.getElementById("admin-reports-list");
-      if (!data || data.length === 0) {
-        list.innerHTML = `<p class="text-muted text-sm">No reports yet.</p>`;
-        return;
-      }
-
-      list.innerHTML = data.map(r => `
-        <div style="padding:0.75rem 0;border-bottom:1px solid var(--border);">
-          <strong>${escapeHtml(r.title)}</strong>
-          <div class="text-xs text-muted mt-1">
-            Status: ${r.status} • Min rank: ${getRankName(r.min_rank_level)} •
-            ${r.is_classified ? "CLASSIFIED" : "Unclassified"}
+    // ----- Reports -----
+    function renderReportList() {
+      const reports = getReports().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+      const el = document.getElementById("r-list");
+      if (!reports.length) { el.innerHTML = `<p class="text-muted text-sm">No reports yet.</p>`; return; }
+      el.innerHTML = reports.map(r => `
+        <div style="padding:0.65rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;">
+          <div>
+            <strong>${esc(r.title)}</strong>
+            <div class="text-xs text-muted">${r.status} • ${getRankName(r.min_rank_level)}+ ${r.is_classified ? "• CLASSIFIED" : ""}</div>
           </div>
+          <button class="btn btn-danger btn-sm" onclick="deleteReport('${r.id}')">Delete</button>
         </div>`).join("");
     }
 
-    document.getElementById("report-form").addEventListener("submit", async (e) => {
+    document.getElementById("report-form").addEventListener("submit", e => {
       e.preventDefault();
-      const btn = document.getElementById("create-btn");
-      const alert = document.getElementById("form-alert");
-      btn.disabled = true;
-      btn.textContent = "Creating...";
-      alert.classList.add("hidden");
-
-      const { error } = await supabase.from("reports").insert({
+      const reports = getReports();
+      reports.push({
+        id: uid(),
         title: document.getElementById("r-title").value.trim(),
         summary: document.getElementById("r-summary").value.trim() || null,
         content: document.getElementById("r-content").value.trim(),
         min_rank_level: Number(document.getElementById("r-rank").value),
         status: document.getElementById("r-status").value,
         is_classified: document.getElementById("r-classified").checked,
-        author_id: currentProfile.id,
+        file_url: document.getElementById("r-file").value.trim() || null,
+        author_id: session.id,
+        author_name: session.username,
+        created_at: new Date().toISOString()
       });
-
-      if (error) {
-        alert.textContent = error.message;
-        alert.className = "alert alert-error";
-        alert.classList.remove("hidden");
-      } else {
-        alert.textContent = "Report created successfully.";
-        alert.className = "alert alert-success";
-        alert.classList.remove("hidden");
-        document.getElementById("report-form").reset();
-        await loadAdminReports();
-      }
-
-      btn.disabled = false;
-      btn.textContent = "Create Report";
+      saveReports(reports);
+      document.getElementById("report-form").reset();
+      const a = document.getElementById("r-alert");
+      a.textContent = "Report created.";
+      a.className = "alert alert-success";
+      a.classList.remove("hidden");
+      renderReportList();
     });
 
-    function escapeHtml(str) {
-      if (!str) return "";
-      return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    function deleteReport(id) {
+      if (!confirm("Delete this report?")) return;
+      saveReports(getReports().filter(r => r.id !== id));
+      renderReportList();
     }
+
+    // ----- Merits -----
+    document.getElementById("merit-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const merits = getMerits();
+      merits.push({
+        id: uid(),
+        title: document.getElementById("m-title").value.trim(),
+        description: document.getElementById("m-desc").value.trim(),
+        recipient_name: document.getElementById("m-recipient").value.trim(),
+        award_type: document.getElementById("m-type").value,
+        file_url: document.getElementById("m-file").value.trim() || null,
+        awarded_by_name: session.username,
+        date_awarded: new Date().toISOString().slice(0,10),
+        created_at: new Date().toISOString()
+      });
+      saveMerits(merits);
+      document.getElementById("merit-form").reset();
+      alert("Award issued.");
+    });
+
+    // ----- Training -----
+    document.getElementById("training-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const items = getTraining();
+      items.push({
+        id: uid(),
+        title: document.getElementById("t-title").value.trim(),
+        description: document.getElementById("t-desc").value.trim(),
+        category: document.getElementById("t-cat").value.trim() || "General",
+        min_rank_level: Number(document.getElementById("t-rank").value),
+        file_url: document.getElementById("t-file").value.trim() || null,
+        external_url: document.getElementById("t-ext").value.trim() || null,
+        created_at: new Date().toISOString()
+      });
+      saveTraining(items);
+      document.getElementById("training-form").reset();
+      alert("Training material added.");
+    });
+
+    // ----- Tutorials -----
+    document.getElementById("tutorial-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const items = getTutorials();
+      items.push({
+        id: uid(),
+        title: document.getElementById("v-title").value.trim(),
+        description: document.getElementById("v-desc").value.trim(),
+        video_url: document.getElementById("v-url").value.trim(),
+        duration_minutes: Number(document.getElementById("v-dur").value) || null,
+        min_rank_level: Number(document.getElementById("v-rank").value),
+        created_at: new Date().toISOString()
+      });
+      saveTutorials(items);
+      document.getElementById("tutorial-form").reset();
+      alert("Tutorial added.");
+    });
+
+    // ----- Links -----
+    document.getElementById("link-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const links = getLinks();
+      links.push({
+        id: uid(),
+        name: document.getElementById("l-name").value.trim(),
+        description: document.getElementById("l-desc").value.trim(),
+        version: document.getElementById("l-ver").value.trim() || "1.0.0",
+        web_url: document.getElementById("l-web").value.trim() || null,
+        desktop_url: document.getElementById("l-desk").value.trim() || null,
+        is_active: true
+      });
+      saveLinks(links);
+      document.getElementById("link-form").reset();
+      alert("Link added.");
+    });
+
+    // ----- Users -----
+    function renderUsers() {
+      if (session.role !== "admin") {
+        document.getElementById("user-list").innerHTML = `<p class="text-muted text-sm">Only admins can manage users.</p>`;
+        return;
+      }
+      const users = getUsers();
+      document.getElementById("user-list").innerHTML = users.map(u => `
+        <div style="padding:0.7rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <div>
+            <strong>${esc(u.username)}</strong>
+            <span class="text-xs text-muted" style="margin-left:0.5rem;">${u.role} • Rank ${u.rank_level}</span>
+          </div>
+          <div class="flex gap-2">
+            <select class="select" style="width:auto;padding:0.3rem 0.5rem;font-size:0.8rem;" onchange="setRank('${u.id}', this.value)">
+              ${[1,2,3,4,5,6,7,8,9].map(l => `<option value="${l}" ${u.rank_level==l?"selected":""}>${getRankName(l)}</option>`).join("")}
+            </select>
+            <select class="select" style="width:auto;padding:0.3rem 0.5rem;font-size:0.8rem;" onchange="setRole('${u.id}', this.value)">
+              <option value="member" ${u.role==="member"?"selected":""}>member</option>
+              <option value="moderator" ${u.role==="moderator"?"selected":""}>moderator</option>
+              <option value="admin" ${u.role==="admin"?"selected":""}>admin</option>
+            </select>
+          </div>
+        </div>`).join("");
+    }
+
+    function setRank(id, level) {
+      const users = getUsers();
+      const u = users.find(x => x.id === id);
+      if (u) { u.rank_level = Number(level); saveUsers(users); renderUsers(); }
+    }
+    function setRole(id, role) {
+      const users = getUsers();
+      const u = users.find(x => x.id === id);
+      if (u) { u.role = role; saveUsers(users); renderUsers(); }
+    }
+
+    // ----- Import -----
+    async function doImport() {
+      const file = document.getElementById("import-file").files[0];
+      const msg = document.getElementById("import-msg");
+      if (!file) { msg.textContent = "Choose a file first."; msg.className = "alert alert-error"; msg.classList.remove("hidden"); return; }
+      try {
+        await importData(file);
+        msg.textContent = "Import successful. Refresh the page to see changes.";
+        msg.className = "alert alert-success";
+        msg.classList.remove("hidden");
+      } catch (err) {
+        msg.textContent = "Import failed: " + err.message;
+        msg.className = "alert alert-error";
+        msg.classList.remove("hidden");
+      }
+    }
+
+    function esc(s) {
+      if (!s) return "";
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    // Initial
+    renderReportList();
   </script>
 </body>
 </html>

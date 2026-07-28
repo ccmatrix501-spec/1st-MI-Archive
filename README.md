@@ -1,111 +1,94 @@
-# Tactical Archive – Secured HTML Version
+# Tactical Archive – Pure HTML (GitHub Pages)
 
-A pure **HTML + CSS + JavaScript** secured archive for gaming communities / units.
+A complete **client-side** archive for gaming communities / units.
 
-No Node.js, no Next.js, no build step. Just static files that work on **GitHub Pages**.
+- No Supabase
+- No backend
+- No build step
+- Runs 100% on GitHub Pages
 
 ---
 
-## What you get
+## Features
 
-- Real login (Supabase Auth)
+- Login / Register
 - Rank system (Recruit → General)
-- **Rank-gated reports** – users below the required rank cannot see the content
+- Rank-gated Reports (users below the required rank see a lock)
 - Merits & Awards
-- Training materials (download / links)
+- Training materials
 - Tutorial videos
-- Tactical Centre (web + desktop app links)
-- Comments under reports
-- Admin panel to create reports
-- Dark tactical military theme
-
-### Security
-
-Even though this is pure HTML, the real security lives in **Supabase Row Level Security (RLS)**.  
-The browser cannot bypass the rank restrictions because the database itself refuses to return the data.
+- Tactical Centre links (web + desktop)
+- Comments on reports
+- Full Admin panel (create everything + manage ranks/roles)
+- Export / Import as JSON (so you can share the archive with the unit)
 
 ---
 
-## Quick Setup
+## How to put it on GitHub Pages
 
-### 1. Create a free Supabase project
-1. Go to https://supabase.com → New Project
-2. Open **SQL Editor** → paste the entire contents of `supabase-schema.sql` → Run
-3. Go to **Authentication → Providers** and enable Email
-4. Copy your **Project URL** and **anon public key**
-
-### 2. Put your keys in the code
-Open `js/config.js` and replace:
-
-```js
-const SUPABASE_URL = "https://YOUR_PROJECT.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR_ANON_KEY_HERE";
-```
-
-### 3. Make yourself admin
-1. Open `index.html` in a browser (or host it)
-2. Create an account
-3. In Supabase → Table Editor → `profiles`
-4. Find your user and set:
-   - `role` = `admin`
-   - `rank_level` = `9`
-   - `rank_name` = `General`
-
-### 4. Host on GitHub Pages
-1. Create a new GitHub repository
-2. Upload all the files from this folder
+1. Create a new **public** GitHub repository
+2. Upload **all** the files from this folder (keep the folder structure)
 3. Go to **Settings → Pages**
-4. Source: Deploy from branch `main` / root
-5. Your site will be live at `https://yourusername.github.io/repo-name/`
+4. Source = `main` branch, folder = `/ (root)`
+5. Wait ~30 seconds
 
----
-
-## File Structure
-
+Your site will be live at:
 ```
-gaming-archive-html/
-├── index.html              ← Login page
-├── dashboard.html
-├── reports.html
-├── report.html             ← Single report + comments
-├── merits.html
-├── training.html
-├── tutorials.html
-├── tactical-centre.html
-├── admin.html              ← Staff only (create reports)
-├── css/style.css
-├── js/
-│   ├── config.js           ← PUT YOUR SUPABASE KEYS HERE
-│   ├── supabase-client.js
-│   └── auth.js
-├── supabase-schema.sql     ← Database + security rules
-└── README.md
+https://YOUR_USERNAME.github.io/YOUR_REPO_NAME/
 ```
 
 ---
 
-## Rank Levels
+## First login
 
-| Level | Name       |
-|-------|------------|
-| 1     | Recruit    |
-| 2     | Private    |
-| 3     | Corporal   |
-| 4     | Sergeant   |
-| 5     | Lieutenant |
-| 6     | Captain    |
-| 7     | Major      |
-| 8     | Colonel    |
-| 9     | General    |
+Default admin account (change it immediately):
 
-When you create a report in the Admin panel you choose the minimum rank. Anyone below that rank sees a lock and the database will not return the row.
+| Username | Password  |
+|----------|-----------|
+| admin    | admin123  |
+
+After login go to **Admin → Users** and change ranks/roles as needed.
 
 ---
 
-## Notes
+## How the community shares data
 
-- This version is perfect for GitHub Pages.
-- File uploads are possible but simplified in this HTML version (you can still add files via Supabase Storage dashboard).
-- For more advanced features (rich text editor, private signed downloads, Discord login) use the full Next.js version instead.
+Because everything is stored in each person’s browser:
 
-Enjoy your secured archive.
+1. An admin creates reports, awards, etc.
+2. Admin goes to **Admin → Export / Import** and downloads the JSON backup
+3. Admin shares the JSON file with the unit (Discord, Drive, etc.)
+4. Other members go to Admin → Import and load the same file
+
+This is the practical way to keep everyone on the same archive without a real database.
+
+---
+
+## File structure
+
+```
+index.html              ← Login
+dashboard.html
+reports.html
+report.html
+merits.html
+training.html
+tutorials.html
+tactical-centre.html
+admin.html              ← Full management
+css/style.css
+js/data.js              ← All logic + localStorage
+README.md
+```
+
+---
+
+## Security note
+
+This is pure client-side storage. It is **not** real server security.  
+Anyone with browser dev tools can see the data.  
+It is suitable for a private community archive, not for highly sensitive information.
+
+---
+
+Enjoy.
