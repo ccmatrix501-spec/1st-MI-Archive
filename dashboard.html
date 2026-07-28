@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard – Tactical Archive</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="nav-inner">
+      <div class="nav-brand">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+        </svg>
+        TACTICAL ARCHIVE
+      </div>
+      <div class="nav-links">
+        <a href="dashboard.html" class="active">Dashboard</a>
+        <a href="reports.html">Reports</a>
+        <a href="merits.html">Merits</a>
+        <a href="training.html">Training</a>
+        <a href="tutorials.html">Tutorials</a>
+        <a href="tactical-centre.html">Tactical Centre</a>
+        <a href="admin.html" id="nav-admin" class="hidden" style="color:#fbbf24;">Admin</a>
+      </div>
+      <div class="nav-user">
+        <div>
+          <div id="nav-username" style="font-weight:600;">—</div>
+          <div id="nav-rank" class="rank text-xs">—</div>
+        </div>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="flex justify-between items-center mb-6" style="flex-wrap:wrap;gap:1rem;">
+      <div>
+        <h1 style="font-size:1.5rem;">Command Dashboard</h1>
+        <p class="text-muted text-sm">Welcome back, <span id="welcome-name" style="color:#86efac;"></span></p>
+      </div>
+      <div class="panel" style="padding:0.75rem 1.25rem;">
+        <div class="flex gap-3 items-center">
+          <div>
+            <div class="text-xs text-muted">RANK</div>
+            <div id="dash-rank" style="font-weight:600;font-size:1.1rem;"></div>
+          </div>
+          <div style="width:1px;height:28px;background:var(--border);"></div>
+          <div>
+            <div class="text-xs text-muted">CLEARANCE</div>
+            <div id="dash-role" style="font-weight:600;font-size:1.1rem;text-transform:capitalize;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-grid" id="stats-grid">
+      <a href="reports.html" class="card">
+        <h3>Reports</h3>
+        <p>Classified & operational reports</p>
+        <div class="count" id="count-reports">—</div>
+      </a>
+      <a href="merits.html" class="card">
+        <h3>Merits & Awards</h3>
+        <p>Recognitions and commendations</p>
+        <div class="count" id="count-merits">—</div>
+      </a>
+      <a href="training.html" class="card">
+        <h3>Training Materials</h3>
+        <p>Guides, SOPs and doctrine</p>
+        <div class="count" id="count-training">—</div>
+      </a>
+      <a href="tutorials.html" class="card">
+        <h3>Tutorial Videos</h3>
+        <p>Instructional and tactical videos</p>
+        <div class="count" id="count-tutorials">—</div>
+      </a>
+      <a href="tactical-centre.html" class="card">
+        <h3>Tactical Centre</h3>
+        <p>Web & desktop application access</p>
+      </a>
+    </div>
+
+    <div class="panel mt-6" style="border-left:4px solid var(--warning);">
+      <p class="text-sm text-muted">
+        <strong style="color:var(--warning);">SECURITY NOTICE:</strong>
+        Access to reports and materials is controlled by rank. Attempting to access restricted content is logged. All downloads and views are audited.
+      </p>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    initSupabase();
+
+    (async () => {
+      const profile = await protectPage();
+      if (!profile) return;
+
+      document.getElementById("welcome-name").textContent = profile.username;
+      document.getElementById("dash-rank").textContent = getRankName(profile.rank_level);
+      document.getElementById("dash-rank").className = `rank-${profile.rank_level}`;
+      document.getElementById("dash-role").textContent = profile.role;
+
+      // Load counts (RLS automatically filters by rank)
+      const [r, m, t, v] = await Promise.all([
+        supabase.from("reports").select("*", { count: "exact", head: true }).eq("status", "published"),
+        supabase.from("merits_awards").select("*", { count: "exact", head: true }),
+        supabase.from("training_materials").select("*", { count: "exact", head: true }),
+        supabase.from("tutorials").select("*", { count: "exact", head: true }),
+      ]);
+
+      document.getElementById("count-reports").textContent = r.count ?? 0;
+      document.getElementById("count-merits").textContent = m.count ?? 0;
+      document.getElementById("count-training").textContent = t.count ?? 0;
+      document.getElementById("count-tutorials").textContent = v.count ?? 0;
+    })();
+  </script>
+</body>
+</html>

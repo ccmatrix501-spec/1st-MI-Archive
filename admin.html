@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin – Tactical Archive</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-inner">
+      <div class="nav-brand">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+        </svg>
+        TACTICAL ARCHIVE
+      </div>
+      <div class="nav-links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="reports.html">Reports</a>
+        <a href="merits.html">Merits</a>
+        <a href="training.html">Training</a>
+        <a href="tutorials.html">Tutorials</a>
+        <a href="tactical-centre.html">Tactical Centre</a>
+        <a href="admin.html" class="active" style="color:#fbbf24;">Admin</a>
+      </div>
+      <div class="nav-user">
+        <div>
+          <div id="nav-username" style="font-weight:600;">—</div>
+          <div id="nav-rank" class="rank text-xs">—</div>
+        </div>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="mb-6">
+      <h1 style="font-size:1.5rem;">Admin Panel</h1>
+      <p class="text-muted text-sm">Create reports and manage archive content. Role: <span id="admin-role" style="color:#fbbf24;text-transform:capitalize;"></span></p>
+    </div>
+
+    <!-- Create Report Form -->
+    <div class="panel mb-6">
+      <h2 style="font-size:1.15rem;margin-bottom:1rem;">Create New Report</h2>
+      <div id="form-alert" class="hidden"></div>
+      <form id="report-form">
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="r-title" class="input" required />
+        </div>
+        <div class="form-group">
+          <label>Summary (optional)</label>
+          <input type="text" id="r-summary" class="input" />
+        </div>
+        <div class="form-group">
+          <label>Content</label>
+          <textarea id="r-content" class="textarea" required></textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+          <div class="form-group">
+            <label>Minimum Rank</label>
+            <select id="r-rank" class="select">
+              <option value="1">Recruit (1)</option>
+              <option value="2">Private (2)</option>
+              <option value="3">Corporal (3)</option>
+              <option value="4">Sergeant (4)</option>
+              <option value="5">Lieutenant (5)</option>
+              <option value="6">Captain (6)</option>
+              <option value="7">Major (7)</option>
+              <option value="8">Colonel (8)</option>
+              <option value="9">General (9)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select id="r-status" class="select">
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end;">
+            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+              <input type="checkbox" id="r-classified" />
+              Classified
+            </label>
+          </div>
+        </div>
+        <button type="submit" class="btn" id="create-btn">Create Report</button>
+      </form>
+    </div>
+
+    <!-- Existing Reports -->
+    <div class="panel">
+      <h2 style="font-size:1.15rem;margin-bottom:1rem;">Existing Reports</h2>
+      <div id="admin-reports-list">
+        <p class="text-muted text-sm">Loading...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    initSupabase();
+    let currentProfile = null;
+
+    (async () => {
+      currentProfile = await protectPage();
+      if (!currentProfile) return;
+
+      if (currentProfile.role !== "admin" && currentProfile.role !== "moderator") {
+        window.location.href = "dashboard.html";
+        return;
+      }
+
+      document.getElementById("admin-role").textContent = currentProfile.role;
+      await loadAdminReports();
+    })();
+
+    async function loadAdminReports() {
+      const { data } = await supabase
+        .from("reports")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      const list = document.getElementById("admin-reports-list");
+      if (!data || data.length === 0) {
+        list.innerHTML = `<p class="text-muted text-sm">No reports yet.</p>`;
+        return;
+      }
+
+      list.innerHTML = data.map(r => `
+        <div style="padding:0.75rem 0;border-bottom:1px solid var(--border);">
+          <strong>${escapeHtml(r.title)}</strong>
+          <div class="text-xs text-muted mt-1">
+            Status: ${r.status} • Min rank: ${getRankName(r.min_rank_level)} •
+            ${r.is_classified ? "CLASSIFIED" : "Unclassified"}
+          </div>
+        </div>`).join("");
+    }
+
+    document.getElementById("report-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("create-btn");
+      const alert = document.getElementById("form-alert");
+      btn.disabled = true;
+      btn.textContent = "Creating...";
+      alert.classList.add("hidden");
+
+      const { error } = await supabase.from("reports").insert({
+        title: document.getElementById("r-title").value.trim(),
+        summary: document.getElementById("r-summary").value.trim() || null,
+        content: document.getElementById("r-content").value.trim(),
+        min_rank_level: Number(document.getElementById("r-rank").value),
+        status: document.getElementById("r-status").value,
+        is_classified: document.getElementById("r-classified").checked,
+        author_id: currentProfile.id,
+      });
+
+      if (error) {
+        alert.textContent = error.message;
+        alert.className = "alert alert-error";
+        alert.classList.remove("hidden");
+      } else {
+        alert.textContent = "Report created successfully.";
+        alert.className = "alert alert-success";
+        alert.classList.remove("hidden");
+        document.getElementById("report-form").reset();
+        await loadAdminReports();
+      }
+
+      btn.disabled = false;
+      btn.textContent = "Create Report";
+    });
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+  </script>
+</body>
+</html>

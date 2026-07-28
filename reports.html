@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reports – Tactical Archive</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-inner">
+      <div class="nav-brand">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+        </svg>
+        TACTICAL ARCHIVE
+      </div>
+      <div class="nav-links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="reports.html" class="active">Reports</a>
+        <a href="merits.html">Merits</a>
+        <a href="training.html">Training</a>
+        <a href="tutorials.html">Tutorials</a>
+        <a href="tactical-centre.html">Tactical Centre</a>
+        <a href="admin.html" id="nav-admin" class="hidden" style="color:#fbbf24;">Admin</a>
+      </div>
+      <div class="nav-user">
+        <div>
+          <div id="nav-username" style="font-weight:600;">—</div>
+          <div id="nav-rank" class="rank text-xs">—</div>
+        </div>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="mb-6">
+      <h1 style="font-size:1.5rem;">Operational Reports</h1>
+      <p class="text-muted text-sm">
+        Rank-restricted. Your clearance:
+        <span id="my-rank" style="font-weight:600;"></span>
+      </p>
+    </div>
+
+    <div id="reports-list">
+      <p class="text-muted text-center" style="padding:3rem 0;">Loading reports...</p>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    initSupabase();
+    let currentProfile = null;
+
+    (async () => {
+      currentProfile = await protectPage();
+      if (!currentProfile) return;
+
+      document.getElementById("my-rank").textContent = getRankName(currentProfile.rank_level);
+      document.getElementById("my-rank").className = `rank-${currentProfile.rank_level}`;
+
+      // RLS already filters what the user can see
+      const { data: reports, error } = await supabase
+        .from("reports")
+        .select(`
+          *,
+          author:profiles!reports_author_id_fkey (username)
+        `)
+        .eq("status", "published")
+        .order("created_at", { ascending: false });
+
+      const list = document.getElementById("reports-list");
+
+      if (error) {
+        list.innerHTML = `<div class="alert alert-error">Failed to load reports: ${error.message}</div>`;
+        return;
+      }
+
+      if (!reports || reports.length === 0) {
+        list.innerHTML = `
+          <div class="panel text-center" style="padding:3rem;">
+            <p class="text-muted">No reports available at your rank level.</p>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = reports.map(r => {
+        const hasAccess = canAccess(currentProfile.rank_level, r.min_rank_level);
+        const date = new Date(r.created_at).toLocaleDateString("en-GB", {
+          day: "2-digit", month: "short", year: "numeric"
+        });
+
+        return `
+          <a href="${hasAccess ? `report.html?id=${r.id}` : '#'}"
+             class="panel mb-4"
+             style="display:block; transition:border-color 0.15s; ${hasAccess ? '' : 'opacity:0.55;cursor:not-allowed;'}">
+            <div class="flex justify-between items-center" style="gap:1rem;">
+              <div style="flex:1;min-width:0;">
+                <div class="flex items-center gap-2" style="flex-wrap:wrap;margin-bottom:0.35rem;">
+                  <strong style="font-size:1.05rem;">${escapeHtml(r.title)}</strong>
+                  ${r.is_classified ? '<span class="badge badge-classified">CLASSIFIED</span>' : ''}
+                  <span class="badge badge-rank rank-${r.min_rank_level}">${getRankName(r.min_rank_level)}+</span>
+                </div>
+                ${r.summary ? `<p class="text-sm text-muted" style="margin-bottom:0.5rem;">${escapeHtml(r.summary)}</p>` : ''}
+                <div class="text-xs text-muted">
+                  ${r.author?.username || 'Unknown'} • ${date}
+                </div>
+              </div>
+              ${!hasAccess ? `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#c9a227" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>` : ''}
+            </div>
+          </a>`;
+      }).join("");
+    })();
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+  </script>
+</body>
+</html>
