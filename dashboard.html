@@ -80,9 +80,17 @@
     // Count only what the user can see
     const reports = getReports().filter(r => r.status === "published" && canAccess(session.rank_level, r.min_rank_level));
     document.getElementById("c-reports").textContent = reports.length;
-    document.getElementById("c-merits").textContent = getMerits().length;
+    if (session.role === "admin") {
+      document.getElementById("c-merits").textContent = getMerits().length;
+    }
     document.getElementById("c-training").textContent = getTraining().filter(t => canAccess(session.rank_level, t.min_rank_level)).length;
     document.getElementById("c-tutorials").textContent = getTutorials().filter(t => canAccess(session.rank_level, t.min_rank_level)).length;
+
+    // Hide Merits card for non-admins
+    if (session.role !== "admin") {
+      const meritsCard = document.querySelector('a.card[href="merits.html"]');
+      if (meritsCard) meritsCard.style.display = "none";
+    }
   </script>
 </body>
 </html>

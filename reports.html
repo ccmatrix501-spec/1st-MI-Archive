@@ -28,12 +28,13 @@
 
     const reports = getReports()
       .filter(r => r.status === "published")
+      .filter(r => canAccess(session.rank_level, r.min_rank_level))  // hide completely if rank too low
       .sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
 
     const list = document.getElementById("list");
 
     if (reports.length === 0) {
-      list.innerHTML = `<div class="panel text-center" style="padding:3rem;"><p class="text-muted">No published reports yet.</p></div>`;
+      list.innerHTML = `<div class="panel text-center" style="padding:3rem;"><p class="text-muted">No reports available at your rank level.</p></div>`;
     } else {
       list.innerHTML = reports.map(r => {
         const hasAccess = canAccess(session.rank_level, r.min_rank_level);

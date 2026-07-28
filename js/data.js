@@ -265,17 +265,22 @@ function renderNavbar(active) {
 
   const isStaff = session.role === "admin" || session.role === "moderator";
 
+  const isAdmin = session.role === "admin";
+
   const links = [
     { href: "dashboard.html", label: "Dashboard" },
     { href: "reports.html", label: "Reports" },
-    { href: "merits.html", label: "Merits" },
     { href: "training.html", label: "Training" },
     { href: "tutorials.html", label: "Tutorials" },
     { href: "tactical-centre.html", label: "Tactical Centre" },
   ];
 
-  if (isStaff) links.push({ href: "admin.html", label: "Admin", admin: true });
-  if (session.role === "admin") links.push({ href: "profile.html", label: "Profile", admin: true });
+  // Merits & Awards — admin only
+  if (isAdmin) links.push({ href: "merits.html", label: "Merits", admin: true });
+  // Admin panel — admin only
+  if (isAdmin) links.push({ href: "admin.html", label: "Admin", admin: true });
+  // Profile — admin only
+  if (isAdmin) links.push({ href: "profile.html", label: "Profile", admin: true });
 
   document.write(`
   <nav class="navbar">

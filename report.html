@@ -37,15 +37,9 @@
     if (!report || report.status !== "published") {
       box.innerHTML = `<div class="panel text-center" style="padding:3rem;"><p class="text-muted">Report not found.</p></div>`;
     } else if (!canAccess(session.rank_level, report.min_rank_level)) {
-      box.innerHTML = `
-        <div class="panel text-center" style="padding:3rem;">
-          <div style="font-size:2rem;margin-bottom:0.75rem;">🔒</div>
-          <h3 style="margin-bottom:0.4rem;">Restricted Access</h3>
-          <p class="text-muted text-sm">
-            Requires <strong style="color:var(--warning);">${formatRank(report.min_rank_level)}</strong> or higher.<br>
-            Your rank: ${formatRank(session.rank_level)}
-          </p>
-        </div>`;
+      // Not high enough rank — pretend it does not exist
+      window.location.href = "reports.html";
+      throw new Error("rank denied");
     } else {
       const date = new Date(report.created_at).toLocaleString("en-GB", {
         day:"2-digit", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit"
