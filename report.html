@@ -4,114 +4,46 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Report – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=7" />
-  <script src="js/data.js?v=7"></script>
-  <script src="js/ranks-icons.js?v=7"></script>
+  <link rel="stylesheet" href="css/style.css?v=s2" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js?v=s2"></script>
+  <script src="js/data.js?v=s2"></script>
+  <script src="js/ranks-icons.js?v=s2"></script>
 </head>
 <body>
-  <script>renderNavbar("reports.html"); applyBackground();</script>
-
-  <div class="container">
-    <a href="reports.html" class="text-sm text-muted" style="display:inline-block;margin-bottom:1.2rem;">← Back to Reports</a>
-    <div id="content"></div>
-
-    <div class="panel mt-6" id="comments-box" style="display:none;">
-      <h3 style="margin-bottom:1rem;">Discussion</h3>
-      <div id="comments"></div>
-      <form id="cform" class="mt-4 flex gap-2">
-        <input type="text" id="cinput" class="input" placeholder="Add a comment..." required />
-        <button type="submit" class="btn">Post</button>
-      </form>
-    </div>
-  </div>
-
+  <div id="app"><p class="text-muted text-center" style="padding:3rem;">Loading…</p></div>
   <script>
-    const session = requireAuth();
-    if (!session) throw new Error("redirect");
-
-    const id = new URLSearchParams(location.search).get("id");
-    const reports = getReports();
-    const report = reports.find(r => r.id === id);
-    const box = document.getElementById("content");
-
-    if (!report || report.status !== "published") {
-      box.innerHTML = `<div class="panel text-center" style="padding:3rem;"><p class="text-muted">Report not found.</p></div>`;
-    } else if (!canAccess(session.rank_level, report.min_rank_level)) {
-      // Not high enough rank — pretend it does not exist
-      window.location.href = "reports.html";
-      throw new Error("rank denied");
-    } else {
-      const date = new Date(report.created_at).toLocaleString("en-GB", {
-        day:"2-digit", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit"
+    let session = null;
+    (async function() {
+      initSupabase();
+      session = await requireAuth();
+      if (!session) return;
+      await applyBackground(); showVersion();
+      const id = new URLSearchParams(location.search).get("id");
+      if (!id) { location.href = "reports.html"; return; }
+      const { data: report, error } = await db().from("reports").select("*").eq("id", id).maybeSingle();
+      if (error || !report) { location.href = "reports.html"; return; }
+      if (!canAccess(session.rank_level, report.min_rank_level)) { location.href = "reports.html"; return; }
+      const comments = await getComments(id);
+      let html = '<div class="container" style="padding-top:1.5rem;"><p class="mb-4"><a href="reports.html" class="text-sm" style="color:#86efac;">← Back to reports</a></p>';
+      html += '<div class="panel mb-4"><h1 style="font-size:1.35rem;margin-bottom:0.5rem;">'+esc(report.title)+'</h1>';
+      html += '<div class="text-xs text-muted mb-4">'+formatRank(report.min_rank_level,14)+'+ · '+(report.is_classified?"CLASSIFIED · ":"")+esc(report.author_name||"")+' · '+new Date(report.created_at).toLocaleString()+'</div>';
+      html += '<div style="white-space:pre-wrap;line-height:1.6;">'+esc(report.body||"")+'</div></div>';
+      html += '<div class="panel"><h2 style="font-size:1.05rem;margin-bottom:1rem;">Discussion</h2>';
+      if (!comments.length) html += '<p class="text-muted text-sm mb-4">No comments yet.</p>';
+      comments.forEach(c => {
+        html += '<div style="padding:0.75rem 0;border-bottom:1px solid var(--border);"><strong>'+esc(c.username)+'</strong> <span class="text-xs text-muted">'+new Date(c.created_at).toLocaleString()+'</span><div class="text-sm mt-1">'+esc(c.body)+'</div></div>';
       });
-
-      box.innerHTML = `
-        <article class="panel">
-          <div class="flex gap-2" style="flex-wrap:wrap;margin-bottom:0.9rem;">
-            ${report.is_classified ? '<span class="badge badge-classified">CLASSIFIED</span>' : ''}
-            <span class="badge badge-rank rank-${report.min_rank_level}">${typeof rankIcon==="function"?rankIcon(report.min_rank_level,16):""} ${getRankName(report.min_rank_level)}+ required</span>
-          </div>
-          <h1 style="font-size:1.55rem;margin-bottom:0.6rem;">${esc(report.title)}</h1>
-          <div class="text-sm text-muted" style="margin-bottom:1.4rem;padding-bottom:0.9rem;border-bottom:1px solid var(--border);">
-            ${esc(report.author_name || "Unknown")} • ${date}
-          </div>
-          ${report.summary ? `
-            <div class="panel" style="background:var(--bg);margin-bottom:1.4rem;">
-              <div class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.2rem;">Summary</div>
-              <p>${esc(report.summary)}</p>
-            </div>` : ''}
-          <div style="white-space:pre-wrap;line-height:1.65;">${esc(report.content)}</div>
-          ${report.file_url ? `
-            <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);">
-              <a href="${esc(report.file_url)}" target="_blank" class="btn btn-sm">Open / Download Attachment</a>
-            </div>` : ''}
-        </article>`;
-
-      document.getElementById("comments-box").style.display = "block";
-      renderComments();
-    }
-
-    function renderComments() {
-      const all = getComments().filter(c => c.parent_type === "report" && c.parent_id === id);
-      const el = document.getElementById("comments");
-      if (all.length === 0) {
-        el.innerHTML = `<p class="text-muted text-sm text-center" style="padding:0.8rem 0;">No comments yet.</p>`;
-        return;
-      }
-      el.innerHTML = all.map(c => {
-        const t = new Date(c.created_at).toLocaleString("en-GB", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" });
-        return `<div class="comment">
-          <div class="comment-meta"><strong>${esc(c.author_name)}</strong> • ${t}</div>
-          <div class="text-sm">${esc(c.content)}</div>
-        </div>`;
-      }).join("");
-    }
-
-    document.getElementById("cform").addEventListener("submit", e => {
-      e.preventDefault();
-      const input = document.getElementById("cinput");
-      const content = input.value.trim();
-      if (!content) return;
-
-      const comments = getComments();
-      comments.push({
-        id: uid(),
-        content,
-        author_id: session.id,
-        author_name: session.username,
-        parent_type: "report",
-        parent_id: id,
-        created_at: new Date().toISOString()
+      html += '<form id="cform" class="mt-4"><div class="form-group"><textarea id="cbody" class="textarea" required placeholder="Add a comment..."></textarea></div><button class="btn" type="submit">Post Comment</button></form></div></div>';
+      document.getElementById("app").innerHTML = html;
+      document.getElementById("cform").addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const body = document.getElementById("cbody").value.trim();
+        if (!body) return;
+        await addComment({ report_id: id, user_id: session.id, username: session.username, body });
+        location.reload();
       });
-      saveComments(comments);
-      input.value = "";
-      renderComments();
-    });
-
-    function esc(s) {
-      if (!s) return "";
-      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    }
+    })();
   </script>
 </body>
 </html>

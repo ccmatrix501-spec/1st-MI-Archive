@@ -1,57 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tutorials – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=7" />
-  <script src="js/data.js?v=7"></script>
-  <script src="js/ranks-icons.js?v=7"></script>
+  <link rel="stylesheet" href="css/style.css?v=s2" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js?v=s2"></script>
+  <script src="js/data.js?v=s2"></script>
+  <script src="js/ranks-icons.js?v=s2"></script>
 </head>
 <body>
-  <script>renderNavbar("tutorials.html"); applyBackground();</script>
-
-  <div class="container">
-    <div class="mb-6">
-      <h1 style="font-size:1.45rem;">Tutorial Videos</h1>
-      <p class="text-muted text-sm">Instructional and tactical video library</p>
-    </div>
-    <div id="list" class="card-grid"></div>
-  </div>
-
+  <div id="app"><p class="text-muted text-center" style="padding:3rem;">Loading…</p></div>
   <script>
-    const session = requireAuth();
-    if (!session) throw new Error("redirect");
-
-    const items = getTutorials().filter(t => canAccess(session.rank_level, t.min_rank_level)).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-    const list = document.getElementById("list");
-
-    if (items.length === 0) {
-      list.innerHTML = `<div class="panel text-center" style="padding:3rem;grid-column:1/-1;"><p class="text-muted">No tutorials available at your rank level.</p></div>`;
-    } else {
-      list.innerHTML = items.map(item => {
-        const hasAccess = canAccess(session.rank_level, item.min_rank_level);
-        return `
-          <div class="card" style="${hasAccess ? '' : 'opacity:0.5;'}">
-            <div style="aspect-ratio:16/9;background:var(--bg);border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:0.7rem;position:relative;">
-              <span style="font-size:1.8rem;opacity:0.35;">▶</span>
-              ${!hasAccess ? `<div style="position:absolute;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;border-radius:6px;"><span>🔒</span></div>` : ''}
-            </div>
-            <h3>${esc(item.title)}</h3>
-            <p class="text-sm text-muted mt-1">${esc(item.description)}</p>
-            <div class="mt-2 flex justify-between items-center">
-              <span class="badge badge-rank rank-${item.min_rank_level}">${typeof rankIcon==="function"?rankIcon(item.min_rank_level,14):""} ${getRankName(item.min_rank_level)}+</span>
-              ${item.duration_minutes ? `<span class="text-xs text-muted">${item.duration_minutes} min</span>` : ''}
-            </div>
-            ${hasAccess && item.video_url ? `<a href="${esc(item.video_url)}" target="_blank" class="btn w-full btn-sm mt-3" style="justify-content:center;">Watch</a>` : ''}
-          </div>`;
-      }).join("");
-    }
-
-    function esc(s) {
-      if (!s) return "";
-      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    }
+    (async function() {
+      initSupabase();
+      const session = await requireAuth();
+      if (!session) return;
+      await applyBackground(); showVersion();
+      const items = (await getTutorials()).filter(t => canAccess(session.rank_level, t.min_rank_level));
+      let html = '<nav class="navbar"><div class="nav-inner"><div class="nav-brand"><span>◆</span> TACTICAL ARCHIVE</div><div class="nav-links">';
+      [["dashboard.html","Dashboard"],["reports.html","Reports"],["voting.html","Voting"],["training.html","Training"],["tutorials.html","Tutorials"],["tactical-centre.html","Tactical Centre"]].forEach(([h,l]) => {
+        html += '<a href="'+h+'" class="'+(h==="tutorials.html"?"active":"")+'">'+l+'</a>';
+      });
+      if (session.role==="admin") html += '<a href="admin.html" style="color:#fbbf24">Admin</a>';
+      html += '</div><div class="nav-user"><div><div style="font-weight:600">'+esc(session.username)+'</div><div>'+formatRank(session.rank_level)+'</div></div><button class="btn-logout" onclick="logout()">Logout</button></div></div></nav>';
+      html += '<div class="container"><h1 style="font-size:1.45rem;margin-bottom:1rem;">Tutorials</h1>';
+      if (!items.length) html += '<div class="panel text-center" style="padding:3rem;"><p class="text-muted">No tutorials for your rank.</p></div>';
+      items.forEach(t => {
+        html += '<div class="panel mb-4 flex justify-between" style="align-items:center;flex-wrap:wrap;gap:0.5rem;"><div><strong>'+esc(t.title)+'</strong><div class="text-xs text-muted">'+getRankName(t.min_rank_level)+'+</div></div><a class="btn btn-sm" href="'+esc(t.url)+'" target="_blank" rel="noopener">Open</a></div>';
+      });
+      html += '</div>';
+      document.getElementById("app").innerHTML = html;
+    })();
   </script>
 </body>
 </html>

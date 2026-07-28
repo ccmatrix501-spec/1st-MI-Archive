@@ -1,65 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Merits – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=7" />
-  <script src="js/data.js?v=7"></script>
-  <script src="js/ranks-icons.js?v=7"></script>
+  <link rel="stylesheet" href="css/style.css?v=s2" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js?v=s2"></script>
+  <script src="js/data.js?v=s2"></script>
+  <script src="js/ranks-icons.js?v=s2"></script>
 </head>
 <body>
-  <script>renderNavbar("merits.html"); applyBackground();</script>
-
-  <div class="container">
-    <div class="mb-6">
-      <h1 style="font-size:1.45rem;">Merits & Awards</h1>
-      <p class="text-muted text-sm">Official recognitions, medals and commendations</p>
-    </div>
-    <div id="list"></div>
-  </div>
-
+  <div id="app"><p class="text-muted text-center" style="padding:3rem;">Loading…</p></div>
   <script>
-    const session = requireAuth();
-    if (!session) throw new Error("redirect");
-    // Merits & Awards are admin-only
-    if (session.role !== "admin") {
-      window.location.href = "dashboard.html";
-      throw new Error("admin only");
-    }
-
-    const merits = getMerits().sort((a,b) => new Date(b.date_awarded) - new Date(a.date_awarded));
-    const list = document.getElementById("list");
-
-    if (merits.length === 0) {
-      list.innerHTML = `<div class="panel text-center" style="padding:3rem;"><p class="text-muted">No merits or awards recorded yet.</p></div>`;
-    } else {
-      list.innerHTML = merits.map(m => {
-        const date = new Date(m.date_awarded).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" });
-        return `
-          <div class="panel mb-4">
-            <div class="flex justify-between items-center" style="gap:1rem;flex-wrap:wrap;">
-              <div>
-                <div class="flex items-center gap-2" style="flex-wrap:wrap;margin-bottom:0.3rem;">
-                  <strong>${esc(m.title)}</strong>
-                  <span class="badge" style="background:#422006;color:#fbbf24;border-color:#854d0e;text-transform:capitalize;">${esc(m.award_type)}</span>
-                </div>
-                <p class="text-sm text-muted">${esc(m.description)}</p>
-                <div class="text-xs text-muted mt-2">
-                  Recipient: <span style="color:#86efac;">${esc(m.recipient_name)}</span> • ${date}
-                  ${m.awarded_by_name ? ` • By ${esc(m.awarded_by_name)}` : ""}
-                </div>
-              </div>
-              ${m.file_url ? `<a href="${esc(m.file_url)}" target="_blank" class="btn btn-sm">Download</a>` : ""}
-            </div>
-          </div>`;
-      }).join("");
-    }
-
-    function esc(s) {
-      if (!s) return "";
-      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    }
+    (async function() {
+      initSupabase();
+      const session = await requireAuth();
+      if (!session) return;
+      if (session.role !== "admin") { location.href = "dashboard.html"; return; }
+      await applyBackground(); showVersion();
+      const items = await getMerits();
+      let html = '<nav class="navbar"><div class="nav-inner"><div class="nav-brand"><span>◆</span> TACTICAL ARCHIVE</div><div class="nav-links">';
+      [["dashboard.html","Dashboard"],["reports.html","Reports"],["voting.html","Voting"],["merits.html","Merits"],["admin.html","Admin"]].forEach(([h,l]) => {
+        html += '<a href="'+h+'" class="'+(h==="merits.html"?"active":"")+'" style="color:#fbbf24">'+l+'</a>';
+      });
+      html += '</div><div class="nav-user"><div><div style="font-weight:600">'+esc(session.username)+'</div></div><button class="btn-logout" onclick="logout()">Logout</button></div></div></nav>';
+      html += '<div class="container"><h1 style="font-size:1.45rem;margin-bottom:1rem;">Merits & Awards</h1>';
+      if (!items.length) html += '<div class="panel text-center" style="padding:3rem;"><p class="text-muted">No merits yet.</p></div>';
+      items.forEach(m => {
+        html += '<div class="panel mb-4"><h3>'+esc(m.title)+'</h3><div class="text-xs text-muted mb-2">Recipient: '+esc(m.recipient_name||"—")+' · By '+esc(m.awarded_by||"")+'</div><p class="text-sm">'+esc(m.description||"")+'</p></div>';
+      });
+      html += '</div>';
+      document.getElementById("app").innerHTML = html;
+    })();
   </script>
 </body>
 </html>

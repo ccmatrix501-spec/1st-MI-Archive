@@ -1,229 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Profile Settings – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=7" />
-  <script src="js/data.js?v=7"></script>
-  <script src="js/ranks-icons.js?v=7"></script>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile – Tactical Archive</title>
+  <link rel="stylesheet" href="css/style.css?v=s2" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js?v=s2"></script>
+  <script src="js/data.js?v=s2"></script>
+  <script src="js/ranks-icons.js?v=s2"></script>
 </head>
 <body>
-  <script>renderNavbar("profile.html"); applyBackground();</script>
-
-  <div class="container">
-    <div class="mb-6">
-      <h1 style="font-size:1.45rem;">Profile & Site Settings</h1>
-      <p class="text-muted text-sm">Admin only — manage your account and site appearance</p>
-    </div>
-
-    <!-- Change Password -->
-    <div class="panel mb-6">
-      <h2 style="font-size:1.1rem;margin-bottom:1rem;">Change Password</h2>
-      <div id="pw-alert" class="hidden"></div>
-      <form id="pw-form">
-        <div class="form-group">
-          <label>Current Password</label>
-          <input type="password" id="pw-current" class="input" required />
-        </div>
-        <div class="form-group">
-          <label>New Password</label>
-          <input type="password" id="pw-new" class="input" required minlength="4" />
-        </div>
-        <div class="form-group">
-          <label>Confirm New Password</label>
-          <input type="password" id="pw-confirm" class="input" required minlength="4" />
-        </div>
-        <button type="submit" class="btn">Update Password</button>
-      </form>
-    </div>
-
-    <!-- Background Image -->
-    <div class="panel mb-6">
-      <h2 style="font-size:1.1rem;margin-bottom:1rem;">Site Background Image</h2>
-      <p class="text-sm text-muted mb-4">Set a background image for the entire archive (URL). Leave empty to use the default dark theme.</p>
-      <div id="bg-alert" class="hidden"></div>
-      <form id="bg-form">
-        <div class="form-group">
-          <label>Image URL</label>
-          <input type="url" id="bg-url" class="input" placeholder="https://example.com/image.jpg" />
-        </div>
-        <div class="flex gap-2" style="flex-wrap:wrap;">
-          <button type="submit" class="btn">Save Background</button>
-          <button type="button" class="btn btn-outline" onclick="useUnitLogo()">Use Unit Logo</button>
-          <button type="button" class="btn btn-outline" onclick="clearBackground()">Remove Background</button>
-        </div>
-      </form>
-      <div id="bg-preview" class="mt-4" style="display:none;">
-        <p class="text-xs text-muted mb-2">Preview:</p>
-        <div id="bg-preview-img" style="height:120px;border-radius:8px;background-size:cover;background-position:center;border:1px solid var(--border);"></div>
-      </div>
-    </div>
-
-    <!-- My Rank -->
-    <div class="panel mb-6">
-      <h2 style="font-size:1.1rem;margin-bottom:1rem;">My Rank</h2>
-      <p class="text-sm text-muted mb-4">Change your own rank. This updates immediately.</p>
-      <div id="rank-alert" class="hidden"></div>
-      <div class="form-group">
-        <label>Rank</label>
-        <select id="my-rank-select" class="select"></select>
-      </div>
-      <button type="button" class="btn" onclick="saveMyRank()">Save Rank</button>
-    </div>
-
-    <!-- Account Info -->
-    <div class="panel">
-      <h2 style="font-size:1.1rem;margin-bottom:1rem;">Account Info</h2>
-      <div class="text-sm">
-        <p><span class="text-muted">Username:</span> <strong id="info-user"></strong></p>
-        <p class="mt-2"><span class="text-muted">Role:</span> <strong id="info-role" style="text-transform:capitalize;"></strong></p>
-        <p class="mt-2"><span class="text-muted">Rank:</span> <strong id="info-rank"></strong></p>
-      </div>
-    </div>
-  </div>
-
+  <div id="app"><p class="text-muted text-center" style="padding:3rem;">Loading…</p></div>
   <script>
-    const session = requireAuth();
-    if (!session) throw new Error("redirect");
-    if (session.role !== "admin") {
-      window.location.href = "dashboard.html";
-      throw new Error("admin only");
-    }
-
-    document.getElementById("info-user").textContent = session.username;
-    document.getElementById("info-role").textContent = session.role;
-    document.getElementById("info-rank").innerHTML = formatRank(session.rank_level, 20);
-    document.getElementById("info-rank").className = "rank-" + session.rank_level;
-
-    // Load current background
-    const settings = getSettings();
-    if (settings.background_image) {
-      document.getElementById("bg-url").value = settings.background_image;
-      showPreview(settings.background_image);
-    }
-
-    function showPreview(url) {
-      const box = document.getElementById("bg-preview");
-      const img = document.getElementById("bg-preview-img");
-      if (url) {
-        img.style.backgroundImage = `url('${url}')`;
-        box.style.display = "block";
-      } else {
-        box.style.display = "none";
-      }
-    }
-
-    // Change password
-    document.getElementById("pw-form").addEventListener("submit", e => {
-      e.preventDefault();
-      const current = document.getElementById("pw-current").value;
-      const newPw = document.getElementById("pw-new").value;
-      const confirm = document.getElementById("pw-confirm").value;
-      const alert = document.getElementById("pw-alert");
-
-      const users = getUsers();
-      const me = users.find(u => u.id === session.id);
-      if (!me || me.password !== current) {
-        alert.textContent = "Current password is incorrect.";
-        alert.className = "alert alert-error";
-        alert.classList.remove("hidden");
-        return;
-      }
-      if (newPw !== confirm) {
-        alert.textContent = "New passwords do not match.";
-        alert.className = "alert alert-error";
-        alert.classList.remove("hidden");
-        return;
-      }
-      me.password = newPw;
-      saveUsers(users);
-      alert.textContent = "Password updated successfully.";
-      alert.className = "alert alert-success";
-      alert.classList.remove("hidden");
-      document.getElementById("pw-form").reset();
-    });
-
-    // Background
-    document.getElementById("bg-form").addEventListener("submit", e => {
-      e.preventDefault();
-      const url = document.getElementById("bg-url").value.trim();
-      const s = getSettings();
-      s.background_image = url;
-      saveSettings(s);
-      applyBackground();
-      showPreview(url);
-      const alert = document.getElementById("bg-alert");
-      alert.textContent = url ? "Background saved." : "Background cleared.";
-      alert.className = "alert alert-success";
-      alert.classList.remove("hidden");
-    });
-
-    function clearBackground() {
-      document.getElementById("bg-url").value = "";
-      const s = getSettings();
-      s.background_image = "";
-      saveSettings(s);
-      document.body.style.backgroundImage = "";
-      document.body.style.backgroundColor = "";
-      showPreview("");
-      const alert = document.getElementById("bg-alert");
-      alert.textContent = "Background removed.";
-      alert.className = "alert alert-success";
-      alert.classList.remove("hidden");
-    }
-
-    function useUnitLogo() {
-      const url = "img/unit-logo.jpg";
-      document.getElementById("bg-url").value = url;
-      const s = getSettings();
-      s.background_image = url;
-      saveSettings(s);
-      applyBackground();
-      showPreview(url);
-      const alert = document.getElementById("bg-alert");
-      alert.textContent = "Unit logo set as background.";
-      alert.className = "alert alert-success";
-      alert.classList.remove("hidden");
-    }
-
-    document.getElementById("bg-url").addEventListener("input", e => {
-      showPreview(e.target.value.trim());
-    });
-
-    // My Rank editor
-    const rankSelect = document.getElementById("my-rank-select");
-    if (rankSelect) {
-      rankSelect.innerHTML = rankOptions(session.rank_level);
-    }
-
-    function saveMyRank() {
-      const level = Number(document.getElementById("my-rank-select").value);
-      const users = getUsers();
-      let me = users.find(u => u.id === session.id) || users.find(u => u.username.toLowerCase() === session.username.toLowerCase());
-      if (!me) {
-        // Create record if missing
-        me = {
-          id: session.id,
-          username: session.username,
-          password: "",
-          role: session.role,
-          rank_level: level,
-          created_at: new Date().toISOString()
-        };
-        users.push(me);
-      } else {
-        me.rank_level = level;
-      }
-      saveUsers(users);
-      session.rank_level = level;
-      setSession({ ...session, rank_level: level });
-      document.getElementById("info-rank").innerHTML = formatRank(level, 20);
-      const alert = document.getElementById("rank-alert");
-      alert.textContent = "Rank updated to " + getRankName(level) + ". Refresh the page to update the navbar.";
-      alert.className = "alert alert-success";
-      alert.classList.remove("hidden");
-    }
+    (async function() {
+      initSupabase();
+      const session = await requireAdmin();
+      if (!session) return;
+      await applyBackground(); showVersion();
+      const settings = await getSettings();
+      let html = '<nav class="navbar"><div class="nav-inner"><div class="nav-brand"><span>◆</span> TACTICAL ARCHIVE</div><div class="nav-links"><a href="dashboard.html">Dashboard</a><a href="admin.html" style="color:#fbbf24">Admin</a><a href="profile.html" class="active" style="color:#fbbf24">Profile</a></div><div class="nav-user"><div><div style="font-weight:600">'+esc(session.username)+'</div></div><button class="btn-logout" onclick="logout()">Logout</button></div></div></nav>';
+      html += '<div class="container"><h1 style="font-size:1.45rem;margin-bottom:1rem;">Profile & Settings</h1>';
+      html += '<div class="panel mb-4"><h2 style="font-size:1.05rem;margin-bottom:0.8rem;">Account</h2><p><strong>'+esc(session.username)+'</strong></p><p class="text-sm text-muted">'+formatRank(session.rank_level)+' · '+session.role+'</p></div>';
+      html += '<div class="panel"><h2 style="font-size:1.05rem;margin-bottom:0.8rem;">Background Image</h2><form id="bg-form"><div class="form-group"><label>Image URL</label><input id="bg-url" class="input" value="'+esc(settings.background_image||"")+'" /></div><button class="btn" type="submit">Save</button> <button type="button" class="btn btn-outline" id="use-logo">Use Unit Logo</button></form><div id="bg-alert" class="hidden mt-4"></div></div></div>';
+      document.getElementById("app").innerHTML = html;
+      document.getElementById("bg-form").onsubmit = async function(e) {
+        e.preventDefault();
+        await saveSettings({ background_image: document.getElementById("bg-url").value.trim() });
+        await applyBackground();
+        const a = document.getElementById("bg-alert");
+        a.textContent = "Saved."; a.className = "alert alert-success"; a.classList.remove("hidden");
+      };
+      document.getElementById("use-logo").onclick = async function() {
+        document.getElementById("bg-url").value = "img/unit-logo.jpg";
+        await saveSettings({ background_image: "img/unit-logo.jpg" });
+        await applyBackground();
+      };
+    })();
   </script>
 </body>
 </html>
