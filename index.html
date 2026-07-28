@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Tactical Archive – Login</title>
-  <link rel="stylesheet" href="css/style.css?v=s7" />
+  <link rel="stylesheet" href="css/style.css?v=s10" />
   <style>
     .input { font-size: 16px !important; min-height: 44px; -webkit-appearance: none; border-radius: 8px; }
     .btn { min-height: 48px; font-size: 1rem; touch-action: manipulation; }
     .login-wrap { padding: 1rem; align-items: flex-start; padding-top: 8vh; }
-    #status { text-align: center; font-size: 0.75rem; color: #6b7b6b; margin-top: 0.75rem; word-break: break-word; }
+    #conn-status { text-align: center; font-size: 0.75rem; color: #6b7b6b; margin-top: 0.75rem; word-break: break-word; }
   </style>
 </head>
 <body>
@@ -36,36 +36,39 @@
           <button type="submit" class="btn w-full" id="submit-btn">Login</button>
         </form>
         <p class="text-center text-xs text-muted mt-4">Accounts issued by unit leadership. No email required.</p>
-        <div id="status">Loading…</div>
+        <div id="conn-status">Loading…</div>
       </div>
     </div>
   </div>
 
-  <!-- Supabase library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js?v=s10"></script>
   <script>
-    // ============================================================
-    // PASTE YOUR ANON KEY HERE (Supabase → Settings → API → anon)
-    // ============================================================
-    var SUPABASE_URL = "https://gubizstvrwaxrnivciqy.supabase.co";
-    var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1Yml6c3R2cndheHJuaXZjaXF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMDg2NDIsImV4cCI6MjEwMDc4NDY0Mn0.W4NX2C-jiBJSUiLjYfrn7XwsQHXIzmt3JIUfA2L2znI";
-    // ============================================================
-
-    var SITE_VERSION = "2026-07-28-s5";
+    // Prefer keys from config.js; fall back to inline only if needed
+    var SUPABASE_URL = (window.TA_CONFIG && window.TA_CONFIG.SUPABASE_URL) || "https://gubizstvrwaxrnivciqy.supabase.co";
+    var SUPABASE_ANON_KEY = (window.TA_CONFIG && window.TA_CONFIG.SUPABASE_ANON_KEY) || "PASTE_YOUR_ANON_KEY_HERE";
+    var SITE_VERSION = (window.SITE_VERSION) || "2026-07-28-s10";
     var client = null;
 
     var alertBox = document.getElementById("alert");
     var btn = document.getElementById("submit-btn");
-    var status = document.getElementById("status");
+    var statusEl = document.getElementById("conn-status");
 
     function showError(msg) {
+      if (!alertBox) return;
       alertBox.textContent = msg;
       alertBox.className = "alert alert-error";
       alertBox.classList.remove("hidden");
     }
     function resetBtn() {
+      if (!btn) return;
       btn.disabled = false;
       btn.textContent = "Login";
+    }
+    function setStatus(msg, color) {
+      if (!statusEl) return;
+      statusEl.textContent = msg;
+      if (color) statusEl.style.color = color;
     }
     function usernameToEmail(username) {
       var clean = String(username || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
@@ -75,28 +78,23 @@
     function init() {
       try {
         if (!window.supabase || !window.supabase.createClient) {
-          status.textContent = "ERROR: Could not load Supabase library (CDN blocked?)";
-          status.style.color = "#f87171";
+          setStatus("ERROR: Supabase library failed to load (CDN blocked?)", "#f87171");
           return;
         }
-        if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.indexOf("PASTE_") === 0) {
-          status.textContent = "ERROR: Open index.html and paste your anon key at the top of the script";
-          status.style.color = "#f87171";
+        if (!SUPABASE_ANON_KEY || String(SUPABASE_ANON_KEY).indexOf("PASTE_") === 0) {
+          setStatus("ERROR: Paste anon key into js/config.js", "#f87171");
           return;
         }
         client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        status.textContent = "Connected · build " + SITE_VERSION;
-        status.style.color = "#86efac";
+        setStatus("Connected · build " + SITE_VERSION, "#86efac");
 
-        // Already logged in?
-        client.auth.getSession().then(function(res) {
+        client.auth.getSession().then(function (res) {
           if (res.data && res.data.session) {
             window.location.replace("dashboard.html");
           }
         });
       } catch (err) {
-        status.textContent = "Init error: " + (err.message || err);
-        status.style.color = "#f87171";
+        setStatus("Init error: " + (err.message || err), "#f87171");
       }
     }
 
@@ -117,7 +115,7 @@
 
       var profile = profileRes.data;
       if (!profile) {
-        var uname = username.trim().toLowerCase();
+        var uname = String(username).trim().toLowerCase();
         var ins = await client.from("profiles").insert({
           id: userId,
           username: uname,
@@ -127,14 +125,13 @@
         if (ins.error) {
           return { error: "No profile. Run profile SQL in Supabase. (" + ins.error.message + ")" };
         }
-        profile = ins.data;
       }
       return { ok: true };
     }
 
-    document.getElementById("auth-form").addEventListener("submit", async function(e) {
+    document.getElementById("auth-form").addEventListener("submit", async function (e) {
       e.preventDefault();
-      alertBox.classList.add("hidden");
+      if (alertBox) alertBox.classList.add("hidden");
       var username = document.getElementById("username").value.trim();
       var password = document.getElementById("password").value;
       if (!username || !password) { showError("Enter username and password."); return; }
@@ -143,7 +140,9 @@
       btn.disabled = true;
       btn.textContent = "Please wait...";
 
-      var timer = setTimeout(function() {
+      var timedOut = false;
+      var timer = setTimeout(function () {
+        timedOut = true;
         showError("Timed out. Check anon key and internet.");
         resetBtn();
       }, 15000);
@@ -151,6 +150,7 @@
       try {
         var result = await doLogin(username, password);
         clearTimeout(timer);
+        if (timedOut) return;
         if (result.error) {
           showError(result.error);
           resetBtn();
@@ -164,12 +164,11 @@
       }
     });
 
-    // Small footer version
     try {
-      var el = document.createElement("div");
-      el.style.cssText = "position:fixed;bottom:6px;right:8px;font-size:10px;color:#4a5a4a;z-index:99;";
-      el.textContent = "build " + SITE_VERSION;
-      document.body.appendChild(el);
+      var stamp = document.createElement("div");
+      stamp.style.cssText = "position:fixed;bottom:6px;right:8px;font-size:10px;color:#4a5a4a;z-index:99;";
+      stamp.textContent = "build " + SITE_VERSION;
+      document.body.appendChild(stamp);
     } catch (e) {}
 
     init();
