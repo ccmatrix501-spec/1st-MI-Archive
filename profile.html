@@ -48,8 +48,9 @@
           <label>Image URL</label>
           <input type="url" id="bg-url" class="input" placeholder="https://example.com/image.jpg" />
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2" style="flex-wrap:wrap;">
           <button type="submit" class="btn">Save Background</button>
+          <button type="button" class="btn btn-outline" onclick="useUnitLogo()">Use Unit Logo</button>
           <button type="button" class="btn btn-outline" onclick="clearBackground()">Remove Background</button>
         </div>
       </form>
@@ -57,6 +58,18 @@
         <p class="text-xs text-muted mb-2">Preview:</p>
         <div id="bg-preview-img" style="height:120px;border-radius:8px;background-size:cover;background-position:center;border:1px solid var(--border);"></div>
       </div>
+    </div>
+
+    <!-- My Rank -->
+    <div class="panel mb-6">
+      <h2 style="font-size:1.1rem;margin-bottom:1rem;">My Rank</h2>
+      <p class="text-sm text-muted mb-4">Change your own rank. This updates immediately.</p>
+      <div id="rank-alert" class="hidden"></div>
+      <div class="form-group">
+        <label>Rank</label>
+        <select id="my-rank-select" class="select"></select>
+      </div>
+      <button type="button" class="btn" onclick="saveMyRank()">Save Rank</button>
     </div>
 
     <!-- Account Info -->
@@ -152,6 +165,7 @@
       s.background_image = "";
       saveSettings(s);
       document.body.style.backgroundImage = "";
+      document.body.style.backgroundColor = "";
       showPreview("");
       const alert = document.getElementById("bg-alert");
       alert.textContent = "Background removed.";
@@ -159,9 +173,57 @@
       alert.classList.remove("hidden");
     }
 
+    function useUnitLogo() {
+      const url = "img/unit-logo.jpg";
+      document.getElementById("bg-url").value = url;
+      const s = getSettings();
+      s.background_image = url;
+      saveSettings(s);
+      applyBackground();
+      showPreview(url);
+      const alert = document.getElementById("bg-alert");
+      alert.textContent = "Unit logo set as background.";
+      alert.className = "alert alert-success";
+      alert.classList.remove("hidden");
+    }
+
     document.getElementById("bg-url").addEventListener("input", e => {
       showPreview(e.target.value.trim());
     });
+
+    // My Rank editor
+    const rankSelect = document.getElementById("my-rank-select");
+    if (rankSelect) {
+      rankSelect.innerHTML = rankOptions(session.rank_level);
+    }
+
+    function saveMyRank() {
+      const level = Number(document.getElementById("my-rank-select").value);
+      const users = getUsers();
+      let me = users.find(u => u.id === session.id) || users.find(u => u.username.toLowerCase() === session.username.toLowerCase());
+      if (!me) {
+        // Create record if missing
+        me = {
+          id: session.id,
+          username: session.username,
+          password: "",
+          role: session.role,
+          rank_level: level,
+          created_at: new Date().toISOString()
+        };
+        users.push(me);
+      } else {
+        me.rank_level = level;
+      }
+      saveUsers(users);
+      session.rank_level = level;
+      setSession({ ...session, rank_level: level });
+      document.getElementById("info-rank").innerHTML = formatRank(level, 20);
+      const alert = document.getElementById("rank-alert");
+      alert.textContent = "Rank updated to " + getRankName(level) + ". Refresh the page to update the navbar.";
+      alert.className = "alert alert-success";
+      alert.classList.remove("hidden");
+    }
   </script>
 </body>
 </html>

@@ -99,7 +99,7 @@ function initDB() {
   if (!localStorage.getItem("ta_links")) save("links", []);
   if (!localStorage.getItem("ta_comments")) save("comments", []);
   if (!localStorage.getItem("ta_settings")) {
-    save("settings", { background_image: "" });
+    save("settings", { background_image: "img/unit-logo.jpg" });
   }
 }
 
@@ -238,11 +238,16 @@ function importData(file) {
 function applyBackground() {
   const settings = getSettings();
   if (settings.background_image) {
-    document.body.style.backgroundImage = `url('${settings.background_image}')`;
-    document.body.style.backgroundSize = "cover";
-    document.body.style.backgroundPosition = "center";
-    document.body.style.backgroundAttachment = "fixed";
-    document.body.style.backgroundRepeat = "no-repeat";
+    document.body.style.backgroundColor = "#0a0f0a";
+    document.body.style.backgroundImage =
+      "linear-gradient(rgba(10,15,10,0.82), rgba(10,15,10,0.88)), url('" + settings.background_image + "')";
+    document.body.style.backgroundSize = "cover, contain";
+    document.body.style.backgroundPosition = "center, center";
+    document.body.style.backgroundAttachment = "fixed, fixed";
+    document.body.style.backgroundRepeat = "no-repeat, no-repeat";
+  } else {
+    document.body.style.backgroundImage = "";
+    document.body.style.backgroundColor = "";
   }
 }
 

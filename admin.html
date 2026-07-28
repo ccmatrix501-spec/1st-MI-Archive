@@ -616,14 +616,38 @@
         document.getElementById("user-list").innerHTML = `<p class="text-muted text-sm">Only admins can manage users.</p>`;
         return;
       }
-      const users = getUsers();
-      document.getElementById("user-list").innerHTML = users.map(u => `
-        <div style="padding:0.75rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+
+      let users = getUsers();
+
+      // Ensure the currently logged-in admin always appears in the list
+      if (!users.find(u => u.id === session.id || u.username.toLowerCase() === session.username.toLowerCase())) {
+        users.push({
+          id: session.id,
+          username: session.username,
+          password: "",
+          role: session.role,
+          rank_level: session.rank_level,
+          created_at: new Date().toISOString()
+        });
+        saveUsers(users);
+        users = getUsers();
+      }
+
+      if (!users.length) {
+        document.getElementById("user-list").innerHTML = `<p class="text-muted text-sm">No users found. Create an admin below or re-login as admin / admin123.</p>`;
+        return;
+      }
+
+      document.getElementById("user-list").innerHTML = users.map(u => {
+        const isYou = (u.id === session.id || u.username.toLowerCase() === session.username.toLowerCase());
+        return `
+        <div style="padding:0.75rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;${isYou ? "background:rgba(61,122,61,0.12);margin:0 -0.5rem;padding-left:0.5rem;padding-right:0.5rem;border-radius:6px;" : ""}">
           <div>
             <strong>${esc(u.username)}</strong>
+            ${isYou ? '<span class="badge" style="background:#14532d;color:#86efac;border-color:#166534;margin-left:0.4rem;">YOU</span>' : ""}
             <span class="text-xs text-muted" style="margin-left:0.5rem;">
               <span style="color:${u.role==="admin"?"#fbbf24":u.role==="moderator"?"#60a5fa":"#9ca3af"}">${u.role}</span>
-              • ${formatRank(u.rank_level)}
+              • <span style="display:inline-flex;align-items:center;gap:0.25rem;">${typeof rankIcon==="function"?rankIcon(u.rank_level,16):""} ${getRankName(u.rank_level)}</span>
             </span>
           </div>
           <div class="flex gap-2 items-center">
@@ -642,18 +666,36 @@
               </select>
             </div>
           </div>
-        </div>`).join("");
+        </div>`;
+      }).join("");
     }
 
     function setRank(id, level) {
       const users = getUsers();
-      const u = users.find(x => x.id === id);
-      if (u) { u.rank_level = Number(level); saveUsers(users); renderUsers(); }
+      const u = users.find(x => x.id === id) || users.find(x => x.username.toLowerCase() === session.username.toLowerCase() && id === session.id);
+      if (u) {
+        u.rank_level = Number(level);
+        saveUsers(users);
+        // If editing yourself, update the live session so navbar refreshes correctly
+        if (u.id === session.id || u.username.toLowerCase() === session.username.toLowerCase()) {
+          session.rank_level = Number(level);
+          setSession({ ...session, rank_level: Number(level) });
+        }
+        renderUsers();
+      }
     }
     function setRole(id, role) {
       const users = getUsers();
       const u = users.find(x => x.id === id);
-      if (u) { u.role = role; saveUsers(users); renderUsers(); }
+      if (u) {
+        u.role = role;
+        saveUsers(users);
+        if (u.id === session.id || u.username.toLowerCase() === session.username.toLowerCase()) {
+          session.role = role;
+          setSession({ ...session, role });
+        }
+        renderUsers();
+      }
     }
 
     document.getElementById("new-admin-form").addEventListener("submit", e => {
