@@ -4,167 +4,108 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voting – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=5" />
-  <script src="js/data.js?v=5"></script>
-  <script src="js/ranks-icons.js?v=5"></script>
+  <link rel="stylesheet" href="css/style.css?v=7" />
+  <script src="js/data.js?v=7"></script>
+  <script src="js/ranks-icons.js?v=7"></script>
 </head>
 <body>
   <script>renderNavbar("voting.html"); applyBackground();</script>
-
   <div class="container">
     <div class="mb-6">
       <h1 style="font-size:1.45rem;">Unit Voting</h1>
-      <p class="text-muted text-sm">Leadership posts subjects. Members cast one vote each.</p>
+      <p class="text-muted text-sm">Leadership posts subjects. Members vote Yes / No / Maybe.</p>
     </div>
-
-    <!-- Leadership: create poll -->
     <div class="panel mb-6" id="create-panel" style="display:none;">
       <h2 style="font-size:1.1rem;margin-bottom:1rem;">Create Vote Subject</h2>
       <div id="create-alert" class="hidden"></div>
       <form id="poll-form">
         <div class="form-group">
           <label>Subject / Question</label>
-          <input type="text" id="poll-title" class="input" required placeholder="What should we vote on?" />
+          <input type="text" id="poll-title" class="input" required placeholder="What should the unit decide?" />
         </div>
         <div class="form-group">
           <label>Description (optional)</label>
-          <textarea id="poll-desc" class="textarea" placeholder="Extra details for voters..."></textarea>
+          <textarea id="poll-desc" class="textarea" placeholder="Extra details..."></textarea>
         </div>
         <div class="form-group">
-          <label>Options (one per line, minimum 2)</label>
-          <textarea id="poll-options" class="textarea" required placeholder="Yes&#10;No&#10;Abstain"></textarea>
+          <label>Options (default Yes / No / Maybe)</label>
+          <textarea id="poll-options" class="textarea" required>Yes
+No
+Maybe</textarea>
         </div>
         <div class="form-group">
           <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-            <input type="checkbox" id="poll-active" checked />
-            Open for voting immediately
+            <input type="checkbox" id="poll-active" checked /> Open for voting immediately
           </label>
         </div>
         <button type="submit" class="btn">Post Subject</button>
       </form>
     </div>
-
-    <div id="polls-list">
-      <p class="text-muted text-center" style="padding:2rem 0;">Loading...</p>
-    </div>
+    <div id="polls-list"><p class="text-muted text-center" style="padding:2rem 0;">Loading...</p></div>
   </div>
-
   <script>
     const session = requireAuth();
     if (!session) throw new Error("redirect");
-
     const isLeader = (session.role === "admin" || session.role === "moderator");
-    if (isLeader) {
-      document.getElementById("create-panel").style.display = "block";
-    }
+    if (isLeader) document.getElementById("create-panel").style.display = "block";
 
     function esc(s) {
       if (!s) return "";
       return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     }
-
+    function optionColor(label) {
+      const t = String(label).toLowerCase();
+      if (t === "yes") return "#166534";
+      if (t === "no") return "#7f1d1d";
+      if (t === "maybe") return "#854d0e";
+      return "#274d27";
+    }
     function userVoteFor(pollId) {
       return getVotes().find(v => v.poll_id === pollId && v.user_id === session.id);
     }
-
     function votesForPoll(pollId) {
       return getVotes().filter(v => v.poll_id === pollId);
     }
-
     function renderPolls() {
       const polls = getPolls().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
       const list = document.getElementById("polls-list");
-
       if (!polls.length) {
-        list.innerHTML = '<div class="panel text-center" style="padding:3rem;"><p class="text-muted">No vote subjects yet.' +
-          (isLeader ? ' Create one above.' : ' Check back later.') + '</p></div>';
+        list.innerHTML = '<div class="panel text-center" style="padding:3rem;"><p class="text-muted">No vote subjects yet.' + (isLeader ? ' Create one above.' : ' Check back later.') + '</p></div>';
         return;
       }
-
       list.innerHTML = polls.map(p => {
         const myVote = userVoteFor(p.id);
         const allVotes = votesForPoll(p.id);
         const total = allVotes.length;
         const closed = !p.active;
-
         let optionsHtml = "";
         p.options.forEach((opt, i) => {
           const count = allVotes.filter(v => v.option_index === i).length;
           const pct = total ? Math.round((count / total) * 100) : 0;
           const isMine = myVote && myVote.option_index === i;
-
+          const color = optionColor(opt);
           if (myVote || closed || isLeader) {
-            // Show results
-            optionsHtml += `
-              <div style="margin-bottom:0.6rem;">
-                <div class="flex justify-between text-sm" style="margin-bottom:0.2rem;">
-                  <span>${esc(opt)}${isMine ? ' <span style="color:#86efac;">(your vote)</span>' : ''}</span>
-                  <span class="text-muted">${count} (${pct}%)</span>
-                </div>
-                <div style="height:8px;background:var(--bg);border-radius:4px;overflow:hidden;">
-                  <div style="height:100%;width:${pct}%;background:${isMine ? '#3d7a3d' : '#274d27'};border-radius:4px;"></div>
-                </div>
-              </div>`;
+            optionsHtml += '<div style="margin-bottom:0.65rem;"><div class="flex justify-between text-sm" style="margin-bottom:0.25rem;"><span><strong>' + esc(opt) + '</strong>' + (isMine ? ' <span style="color:#86efac;">(your vote)</span>' : '') + '</span><span class="text-muted">' + count + ' · ' + pct + '%</span></div><div style="height:10px;background:var(--bg);border-radius:4px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:4px;"></div></div></div>';
           } else {
-            // Vote buttons
-            optionsHtml += `
-              <button type="button" class="btn btn-outline w-full" style="margin-bottom:0.5rem;justify-content:flex-start;"
-                      onclick="castVote('${p.id}', ${i})">${esc(opt)}</button>`;
+            optionsHtml += '<button type="button" class="btn w-full" style="margin-bottom:0.5rem;justify-content:center;background:' + color + ';min-height:48px;font-size:1rem;" onclick="castVote(\'' + p.id + '\', ' + i + ')">' + esc(opt) + '</button>';
           }
         });
-
         let actions = "";
         if (isLeader) {
-          actions = `
-            <div class="flex gap-2 mt-4" style="flex-wrap:wrap;">
-              <button type="button" class="btn btn-sm btn-outline" onclick="togglePoll('${p.id}')">${p.active ? 'Close Voting' : 'Reopen Voting'}</button>
-              <button type="button" class="btn btn-sm btn-danger" onclick="deletePoll('${p.id}')">Delete</button>
-            </div>`;
+          actions = '<div class="flex gap-2 mt-4" style="flex-wrap:wrap;"><button type="button" class="btn btn-sm btn-outline" onclick="togglePoll(\'' + p.id + '\')">' + (p.active ? 'Close Voting' : 'Reopen Voting') + '</button><button type="button" class="btn btn-sm btn-danger" onclick="deletePoll(\'' + p.id + '\')">Delete</button></div>';
         }
-
-        return `
-          <div class="panel mb-4">
-            <div class="flex justify-between items-center" style="gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-              <h3 style="font-size:1.1rem;">${esc(p.title)}</h3>
-              <span class="badge ${p.active ? '' : 'badge-classified'}" style="${p.active ? 'background:#14532d;color:#86efac;border-color:#166534;' : ''}">
-                ${p.active ? 'OPEN' : 'CLOSED'}
-              </span>
-            </div>
-            ${p.description ? `<p class="text-sm text-muted mb-4">${esc(p.description)}</p>` : ''}
-            <div class="text-xs text-muted mb-4">
-              Posted by ${esc(p.author_name)} · ${total} vote${total === 1 ? '' : 's'}
-              ${myVote ? ' · You have voted' : ''}
-            </div>
-            ${optionsHtml}
-            ${actions}
-          </div>`;
+        return '<div class="panel mb-4"><div class="flex justify-between items-center" style="gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;"><h3 style="font-size:1.15rem;">' + esc(p.title) + '</h3><span class="badge" style="' + (p.active ? 'background:#14532d;color:#86efac;border-color:#166534;' : 'background:#450a0a;color:#f87171;border-color:#7f1d1d;') + '">' + (p.active ? 'OPEN' : 'CLOSED') + '</span></div>' + (p.description ? '<p class="text-sm text-muted mb-4">' + esc(p.description) + '</p>' : '') + '<div class="text-xs text-muted mb-4">Posted by ' + esc(p.author_name) + ' · ' + total + ' vote' + (total === 1 ? '' : 's') + (myVote ? ' · You voted <strong>' + esc(p.options[myVote.option_index]) + '</strong>' : '') + '</div>' + optionsHtml + actions + '</div>';
       }).join("");
     }
-
     function castVote(pollId, optionIndex) {
-      const polls = getPolls();
-      const poll = polls.find(p => p.id === pollId);
-      if (!poll || !poll.active) {
-        alert("This vote is closed.");
-        return;
-      }
-      if (userVoteFor(pollId)) {
-        alert("You already voted on this subject.");
-        return;
-      }
+      const poll = getPolls().find(p => p.id === pollId);
+      if (!poll || !poll.active) { alert("This vote is closed."); return; }
+      if (userVoteFor(pollId)) { alert("You already voted."); return; }
       const votes = getVotes();
-      votes.push({
-        id: uid(),
-        poll_id: pollId,
-        user_id: session.id,
-        username: session.username,
-        option_index: optionIndex,
-        created_at: new Date().toISOString()
-      });
+      votes.push({ id: uid(), poll_id: pollId, user_id: session.id, username: session.username, option_index: optionIndex, created_at: new Date().toISOString() });
       saveVotes(votes);
       renderPolls();
     }
-
     function togglePoll(pollId) {
       if (!isLeader) return;
       const polls = getPolls();
@@ -174,49 +115,34 @@
       savePolls(polls);
       renderPolls();
     }
-
     function deletePoll(pollId) {
       if (!isLeader) return;
-      if (!confirm("Delete this vote subject and all its votes?")) return;
+      if (!confirm("Delete this vote subject and all votes?")) return;
       savePolls(getPolls().filter(p => p.id !== pollId));
       saveVotes(getVotes().filter(v => v.poll_id !== pollId));
       renderPolls();
     }
-
-    // Create poll
     const form = document.getElementById("poll-form");
     if (form) {
       form.addEventListener("submit", function(e) {
         e.preventDefault();
         if (!isLeader) return;
-
         const title = document.getElementById("poll-title").value.trim();
         const description = document.getElementById("poll-desc").value.trim();
-        const optionsRaw = document.getElementById("poll-options").value.split("\n")
-          .map(s => s.trim()).filter(Boolean);
+        const optionsRaw = document.getElementById("poll-options").value.split("\n").map(s => s.trim()).filter(Boolean);
         const active = document.getElementById("poll-active").checked;
-
         if (optionsRaw.length < 2) {
           const a = document.getElementById("create-alert");
-          a.textContent = "Add at least 2 options (one per line).";
+          a.textContent = "Need at least 2 options.";
           a.className = "alert alert-error";
           a.classList.remove("hidden");
           return;
         }
-
         const polls = getPolls();
-        polls.push({
-          id: uid(),
-          title,
-          description: description || null,
-          options: optionsRaw,
-          active,
-          author_id: session.id,
-          author_name: session.username,
-          created_at: new Date().toISOString()
-        });
+        polls.push({ id: uid(), title, description: description || null, options: optionsRaw, active, author_id: session.id, author_name: session.username, created_at: new Date().toISOString() });
         savePolls(polls);
         form.reset();
+        document.getElementById("poll-options").value = "Yes\nNo\nMaybe";
         document.getElementById("poll-active").checked = true;
         const a = document.getElementById("create-alert");
         a.textContent = "Vote subject posted.";
@@ -225,7 +151,6 @@
         renderPolls();
       });
     }
-
     renderPolls();
   </script>
 </body>

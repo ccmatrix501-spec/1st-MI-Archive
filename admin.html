@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=5" />
-  <script src="js/data.js?v=5"></script>
-  <script src="js/ranks-icons.js?v=5"></script>
+  <link rel="stylesheet" href="css/style.css?v=7" />
+  <script src="js/data.js?v=7"></script>
+  <script src="js/ranks-icons.js?v=7"></script>
 </head>
 <body>
   <script>renderNavbar("admin.html"); applyBackground();</script>
@@ -204,8 +204,19 @@
         </p>
         <div id="user-list"><p class="text-muted text-sm">Loading users...</p></div>
       </div>
+      <div class="panel mb-4">
+        <h3 style="font-size:1rem;margin-bottom:0.8rem;">Create Member Account</h3>
+        <p class="text-sm text-muted mb-4">Create normal members for worldwide login. Then Export and upload data/shared.json to GitHub.</p>
+        <div id="new-member-alert" class="hidden"></div>
+        <form id="new-member-form">
+          <div class="form-group"><label>Username</label><input type="text" id="nm-username" class="input" required minlength="3" /></div>
+          <div class="form-group"><label>Password</label><input type="password" id="nm-password" class="input" required minlength="4" /></div>
+          <div class="form-group"><label>Starting Rank</label><select id="nm-rank" class="select"></select></div>
+          <button type="submit" class="btn">Create Member</button>
+        </form>
+      </div>
       <div class="panel">
-        <h3 style="font-size:1rem;margin-bottom:0.8rem;">Create New Admin Account</h3>
+        <h3 style="font-size:1rem;margin-bottom:0.8rem;">Create Admin Account</h3>
         <div id="new-admin-alert" class="hidden"></div>
         <form id="new-admin-form">
           <div class="form-group"><label>Username</label><input type="text" id="na-username" class="input" required minlength="3" /></div>
@@ -220,7 +231,13 @@
     <div id="tab-data" class="hidden">
       <div class="panel mb-4">
         <h2 style="font-size:1.1rem;margin-bottom:0.8rem;">Export Archive</h2>
-        <p class="text-sm text-muted mb-4">Download a JSON backup of all content. Share it with the unit.</p>
+        <p class="text-sm text-muted mb-4">Download a JSON backup. To let other people log in from their phones/PCs:</p>
+        <ol class="text-sm text-muted mb-4" style="padding-left:1.2rem;">
+          <li>Click Download Backup JSON</li>
+          <li>Rename the file to <code>shared.json</code></li>
+          <li>Upload it into the repo folder <code>data/shared.json</code> on GitHub (overwrite)</li>
+          <li>Other users refresh the login page — their accounts will load</li>
+        </ol>
         <button class="btn" onclick="exportData()">Download Backup JSON</button>
       </div>
       <div class="panel">
@@ -242,7 +259,7 @@
     }
 
     // Fill all rank selects
-    ["r-rank","t-rank","v-rank","na-rank"].forEach(id => {
+    ["r-rank","t-rank","v-rank","na-rank","nm-rank"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = rankOptions(id === "na-rank" ? 22 : 1);
     });
@@ -718,6 +735,10 @@
         html += '</div></div>';
       });
       html += '</div>';
+      var members = users.filter(function(u){ return u.role === "member"; }).length;
+      var admins = users.filter(function(u){ return u.role === "admin"; }).length;
+      var mods = users.filter(function(u){ return u.role === "moderator"; }).length;
+      html = '<p class="text-sm text-muted mb-4">Total: <strong>' + users.length + '</strong> · Members: <strong>' + members + '</strong> · Moderators: <strong style="color:#60a5fa;">' + mods + '</strong> · Admins: <strong style="color:#fbbf24;">' + admins + '</strong></p>' + html;
       listEl.innerHTML = html;
 
       // Bind buttons for each user
@@ -916,6 +937,35 @@
       });
     })();
 
+
+    
+    var nmForm = document.getElementById("new-member-form");
+    if (nmForm) {
+      nmForm.addEventListener("submit", function(e) {
+        e.preventDefault();
+        if (session.role !== "admin") { alert("Only admins can create accounts."); return; }
+        var username = document.getElementById("nm-username").value.trim();
+        var password = document.getElementById("nm-password").value;
+        var rank = Number(document.getElementById("nm-rank").value) || 1;
+        var alertBox = document.getElementById("new-member-alert");
+        var users = getUsers();
+        if (users.find(function(u){ return u.username.toLowerCase() === username.toLowerCase(); })) {
+          alertBox.textContent = "Username already taken.";
+          alertBox.className = "alert alert-error";
+          alertBox.classList.remove("hidden");
+          return;
+        }
+        users.push({ id: uid(), username: username, password: password, role: "member", rank_level: rank, created_at: new Date().toISOString() });
+        saveUsers(users);
+        nmForm.reset();
+        var nmRank = document.getElementById("nm-rank");
+        if (nmRank) nmRank.innerHTML = rankOptions(1);
+        alertBox.textContent = "Member created: " + username + ". Remember to Export and upload data/shared.json so they can log in worldwide.";
+        alertBox.className = "alert alert-success";
+        alertBox.classList.remove("hidden");
+        renderUsers();
+      });
+    }
 
     document.getElementById("new-admin-form").addEventListener("submit", e => {
       e.preventDefault();
