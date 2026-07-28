@@ -4,72 +4,140 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=s2" />
+  <link rel="stylesheet" href="css/style.css?v=s6" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=s2"></script>
-  <script src="js/data.js?v=s2"></script>
-  <script src="js/ranks-icons.js?v=s2"></script>
+  <script src="js/config.js?v=s6"></script>
 </head>
 <body>
-  <div id="nav-slot"></div>
-  <div class="container">
-    <div class="mb-6">
-      <h1 style="font-size:1.45rem;">Welcome, <span id="welcome">…</span></h1>
-      <p class="text-muted text-sm">
-        <span id="dash-rank"></span> · <span id="dash-role"></span>
-      </p>
-    </div>
-    <div class="grid grid-2" style="gap:1rem;">
-      <a href="reports.html" class="card"><h3>Reports</h3><p>Operational & classified</p><div class="count" id="c-reports">–</div></a>
-      <a href="voting.html" class="card"><h3>Voting</h3><p>Unit subjects · Yes/No/Maybe</p><div class="count" id="c-polls">–</div></a>
-      <a href="training.html" class="card"><h3>Training</h3><p>Materials by rank</p><div class="count" id="c-training">–</div></a>
-      <a href="tutorials.html" class="card"><h3>Tutorials</h3><p>Video links</p><div class="count" id="c-tutorials">–</div></a>
-      <a href="tactical-centre.html" class="card"><h3>Tactical Centre</h3><p>App links</p><div class="count" id="c-links">–</div></a>
-      <a href="merits.html" class="card" id="merits-card" style="display:none;"><h3>Merits</h3><p>Awards (admin)</p><div class="count" id="c-merits">–</div></a>
-    </div>
+  <div id="root">
+    <p class="text-muted text-center" style="padding:3rem;">Loading dashboard…</p>
   </div>
+
   <script>
-    (async function() {
-      initSupabase();
-      const session = await requireAuth();
-      if (!session) return;
-      // navbar needs sync session loaded
-      document.getElementById("nav-slot").innerHTML = "";
-      // re-call render via manual insert since document.write already passed
-      const isAdmin = session.role === "admin";
-      const links = [
-        ["dashboard.html","Dashboard"],["reports.html","Reports"],["voting.html","Voting"],
-        ["training.html","Training"],["tutorials.html","Tutorials"],["tactical-centre.html","Tactical Centre"]
-      ];
-      if (isAdmin) {
-        links.push(["merits.html","Merits"],["admin.html","Admin"],["profile.html","Profile"]);
-      }
-      let nav = '<nav class="navbar"><div class="nav-inner"><div class="nav-brand"><span>◆</span> TACTICAL ARCHIVE</div><div class="nav-links">';
-      links.forEach(([href,label]) => {
-        const admin = (label==="Merits"||label==="Admin"||label==="Profile");
-        nav += '<a href="'+href+'" class="'+(href==="dashboard.html"?"active":"")+'" style="'+(admin?"color:#fbbf24":"")+'">'+label+'</a>';
-      });
-      nav += '</div><div class="nav-user"><div><div style="font-weight:600">'+esc(session.username)+'</div><div class="rank rank-'+session.rank_level+'">'+formatRank(session.rank_level)+' · '+session.role+'</div></div><button class="btn-logout" onclick="logout()">Logout</button></div></div></nav>';
-      document.getElementById("nav-slot").outerHTML = nav;
+    var SITE_VERSION = "2026-07-28-s6";
 
-      document.getElementById("welcome").textContent = session.username;
-      document.getElementById("dash-rank").innerHTML = formatRank(session.rank_level, 20);
-      document.getElementById("dash-role").textContent = session.role;
+    function esc(s) {
+      if (!s) return "";
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
 
-      const reports = await getReports();
-      document.getElementById("c-reports").textContent = reports.length;
-      const polls = await getPolls();
-      document.getElementById("c-polls").textContent = polls.filter(p => p.active).length;
-      document.getElementById("c-training").textContent = (await getTraining()).length;
-      document.getElementById("c-tutorials").textContent = (await getTutorials()).length;
-      document.getElementById("c-links").textContent = (await getLinks()).length;
-      if (isAdmin) {
-        document.getElementById("merits-card").style.display = "";
-        document.getElementById("c-merits").textContent = (await getMerits()).length;
+    function getClient() {
+      var cfg = window.TA_CONFIG || {};
+      if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY || String(cfg.SUPABASE_ANON_KEY).indexOf("PASTE_") === 0) {
+        throw new Error("Paste your anon key into js/config.js");
       }
-      await applyBackground();
-      showVersion();
-    })();
+      if (!window.supabase || !window.supabase.createClient) {
+        throw new Error("Supabase library failed to load");
+      }
+      return window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    }
+
+    async function main() {
+      var root = document.getElementById("root");
+      try {
+        var client = getClient();
+        var sess = await client.auth.getSession();
+        var session = sess.data && sess.data.session;
+        if (!session) {
+          window.location.replace("index.html");
+          return;
+        }
+
+        var userId = session.user.id;
+        var email = session.user.email || "";
+        var profileRes = await client.from("profiles").select("*").eq("id", userId).maybeSingle();
+        var profile = profileRes.data;
+
+        if (!profile) {
+          var uname = email.split("@")[0] || "user";
+          var ins = await client.from("profiles").insert({
+            id: userId, username: uname, role: "member", rank_level: 1
+          }).select("*").maybeSingle();
+          profile = ins.data || { username: uname, role: "member", rank_level: 1 };
+        }
+
+        var username = profile.username || "Operator";
+        var role = profile.role || "member";
+        var rank = profile.rank_level || 1;
+        var isAdmin = role === "admin";
+
+        // Counts
+        var reports = (await client.from("reports").select("id", { count: "exact", head: true })).count || 0;
+        var polls = (await client.from("polls").select("id", { count: "exact", head: true })).count || 0;
+        var training = (await client.from("training").select("id", { count: "exact", head: true })).count || 0;
+        var tutorials = (await client.from("tutorials").select("id", { count: "exact", head: true })).count || 0;
+        var links = (await client.from("links").select("id", { count: "exact", head: true })).count || 0;
+        var merits = 0;
+        if (isAdmin) {
+          merits = (await client.from("merits").select("id", { count: "exact", head: true })).count || 0;
+        }
+
+        var navLinks = [
+          ["dashboard.html", "Dashboard"],
+          ["reports.html", "Reports"],
+          ["voting.html", "Voting"],
+          ["training.html", "Training"],
+          ["tutorials.html", "Tutorials"],
+          ["tactical-centre.html", "Tactical Centre"]
+        ];
+        if (isAdmin) {
+          navLinks.push(["merits.html", "Merits"]);
+          navLinks.push(["admin.html", "Admin"]);
+          navLinks.push(["profile.html", "Profile"]);
+        }
+
+        var nav = '<nav class="navbar"><div class="nav-inner">';
+        nav += '<div class="nav-brand"><span>◆</span> TACTICAL ARCHIVE</div><div class="nav-links">';
+        navLinks.forEach(function(pair) {
+          var href = pair[0], label = pair[1];
+          var adminStyle = (label === "Admin" || label === "Merits" || label === "Profile") ? "color:#fbbf24" : "";
+          var active = href === "dashboard.html" ? "active" : "";
+          nav += '<a href="' + href + '" class="' + active + '" style="' + adminStyle + '">' + label + '</a>';
+        });
+        nav += '</div><div class="nav-user"><div><div style="font-weight:600">' + esc(username) + '</div>';
+        nav += '<div class="text-xs text-muted">Rank ' + rank + ' · ' + esc(role) + '</div></div>';
+        nav += '<button class="btn-logout" type="button" id="btn-logout">Logout</button></div></div></nav>';
+
+        var html = nav;
+        html += '<div class="container">';
+        html += '<div class="mb-6"><h1 style="font-size:1.45rem;">Welcome, ' + esc(username) + '</h1>';
+        html += '<p class="text-muted text-sm">Rank level ' + rank + ' · ' + esc(role) + ' · shared live database</p></div>';
+
+        html += '<div class="grid grid-2" style="gap:1rem;">';
+        html += card("reports.html", "Reports", "Operational & classified", reports);
+        html += card("voting.html", "Voting", "Unit subjects · Yes/No/Maybe", polls);
+        html += card("training.html", "Training", "Materials by rank", training);
+        html += card("tutorials.html", "Tutorials", "Video links", tutorials);
+        html += card("tactical-centre.html", "Tactical Centre", "App links", links);
+        if (isAdmin) html += card("merits.html", "Merits", "Awards (admin)", merits);
+        html += '</div></div>';
+
+        root.innerHTML = html;
+
+        document.getElementById("btn-logout").onclick = async function() {
+          await client.auth.signOut();
+          window.location.href = "index.html";
+        };
+
+        // version stamp
+        var stamp = document.createElement("div");
+        stamp.style.cssText = "position:fixed;bottom:6px;right:8px;font-size:10px;color:#4a5a4a;z-index:99;";
+        stamp.textContent = "build " + SITE_VERSION;
+        document.body.appendChild(stamp);
+
+      } catch (err) {
+        root.innerHTML = '<div class="container"><div class="panel" style="margin-top:2rem;"><h2>Dashboard error</h2><p class="text-sm" style="color:#f87171;">' +
+          esc(err.message || String(err)) + '</p><p class="text-sm text-muted mt-4">Check js/config.js anon key. <a href="index.html" style="color:#86efac;">Back to login</a></p></div></div>';
+      }
+    }
+
+    function card(href, title, sub, count) {
+      return '<a href="' + href + '" class="card" style="display:block;text-decoration:none;color:inherit;">' +
+        '<h3>' + title + '</h3><p>' + sub + '</p>' +
+        '<div class="count">' + count + '</div></a>';
+    }
+
+    main();
   </script>
 </body>
 </html>
