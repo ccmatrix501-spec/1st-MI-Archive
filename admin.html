@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=3" />
-  <script src="js/data.js?v=3"></script>
-  <script src="js/ranks-icons.js?v=3"></script>
+  <link rel="stylesheet" href="css/style.css?v=5" />
+  <script src="js/data.js?v=5"></script>
+  <script src="js/ranks-icons.js?v=5"></script>
 </head>
 <body>
   <script>renderNavbar("admin.html"); applyBackground();</script>
@@ -23,6 +23,7 @@
       <button class="btn btn-outline btn-sm tab-btn" data-tab="training" onclick="showTab('training')">Training</button>
       <button class="btn btn-outline btn-sm tab-btn" data-tab="tutorials" onclick="showTab('tutorials')">Tutorials</button>
       <button class="btn btn-outline btn-sm tab-btn" data-tab="links" onclick="showTab('links')">Tactical Centre</button>
+      <button class="btn btn-outline btn-sm tab-btn" data-tab="voting" onclick="showTab('voting')">Voting</button>
       <button class="btn btn-outline btn-sm tab-btn" data-tab="users" onclick="showTab('users')">Users</button>
       <button class="btn btn-outline btn-sm tab-btn" data-tab="data" onclick="showTab('data')">Export / Import</button>
     </div>
@@ -167,6 +168,34 @@
     </div>
 
     <!-- USERS -->
+    
+    <!-- VOTING -->
+    <div id="tab-voting" class="hidden">
+      <div class="panel mb-6">
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;">Create Voting Subject</h2>
+        <div id="vote-alert" class="hidden"></div>
+        <form id="poll-form">
+          <div class="form-group">
+            <label>Subject / Title</label>
+            <input type="text" id="p-title" class="input" required placeholder="What should the unit vote on?" />
+          </div>
+          <div class="form-group">
+            <label>Description (optional)</label>
+            <textarea id="p-desc" class="textarea" placeholder="Background or instructions for voters"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Options (one per line, minimum 2)</label>
+            <textarea id="p-options" class="textarea" required placeholder="Yes&#10;No&#10;Abstain"></textarea>
+          </div>
+          <button type="submit" class="btn">Open Vote</button>
+        </form>
+      </div>
+      <div class="panel">
+        <h3 style="margin-bottom:0.8rem;">All Subjects</h3>
+        <div id="admin-polls-list"></div>
+      </div>
+    </div>
+
     <div id="tab-users" class="hidden">
       <div class="panel mb-4">
         <h2 style="font-size:1.1rem;margin-bottom:0.6rem;">User Management</h2>
@@ -219,13 +248,14 @@
     });
 
     function showTab(name) {
-      ["reports","merits","training","tutorials","links","users","data"].forEach(t => {
+      ["reports","merits","training","tutorials","links","voting","users","data"].forEach(t => {
         document.getElementById("tab-" + t).classList.add("hidden");
       });
       document.getElementById("tab-" + name).classList.remove("hidden");
       document.querySelectorAll(".tab-btn").forEach(b => {
         b.className = b.dataset.tab === name ? "btn btn-sm tab-btn" : "btn btn-outline btn-sm tab-btn";
       });
+      if (name === "voting") renderAdminPolls();
       if (name === "users") renderUsers();
       if (name === "reports") renderReportList();
       if (name === "merits") renderMeritList();
@@ -799,6 +829,92 @@
       alert("Removed " + name);
       renderUsers();
     }
+
+
+    
+    // ========== VOTING / POLLS ==========
+    function renderAdminPolls() {
+      const el = document.getElementById("admin-polls-list");
+      if (!el) return;
+      const polls = getPolls().slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+      if (!polls.length) {
+        el.innerHTML = '<p class="text-muted text-sm">No voting subjects yet.</p>';
+        return;
+      }
+      el.innerHTML = polls.map((p, idx) => {
+        const total = (p.votes || []).length;
+        const open = p.open !== false;
+        return `
+          <div style="padding:0.75rem 0;border-bottom:1px solid var(--border);">
+            <div class="flex justify-between items-center" style="gap:1rem;flex-wrap:wrap;">
+              <div>
+                <strong>${esc(p.title)}</strong>
+                <div class="text-xs text-muted mt-1">
+                  ${open ? "OPEN" : "CLOSED"} · ${total} vote(s) · ${(p.options||[]).length} options
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button type="button" class="btn btn-outline btn-sm" onclick="togglePoll('${p.id}')">${open ? "Close" : "Reopen"}</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="deletePoll('${p.id}')">Delete</button>
+              </div>
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    function togglePoll(id) {
+      const polls = getPolls();
+      const p = polls.find(x => x.id === id);
+      if (!p) return;
+      p.open = !(p.open !== false);
+      savePolls(polls);
+      renderAdminPolls();
+    }
+
+    function deletePoll(id) {
+      if (!confirm("Delete this voting subject and all votes?")) return;
+      savePolls(getPolls().filter(p => p.id !== id));
+      renderAdminPolls();
+    }
+
+    (function setupPollForm() {
+      const form = document.getElementById("poll-form");
+      if (!form) return;
+      form.addEventListener("submit", function(e) {
+        e.preventDefault();
+        const title = document.getElementById("p-title").value.trim();
+        const description = document.getElementById("p-desc").value.trim();
+        const raw = document.getElementById("p-options").value;
+        const options = raw.split("\n").map(s => s.trim()).filter(Boolean);
+        const alertBox = document.getElementById("vote-alert");
+
+        if (options.length < 2) {
+          alertBox.textContent = "Add at least 2 options (one per line).";
+          alertBox.className = "alert alert-error";
+          alertBox.classList.remove("hidden");
+          return;
+        }
+
+        const polls = getPolls();
+        polls.push({
+          id: uid(),
+          title,
+          description: description || null,
+          options,
+          votes: [],
+          open: true,
+          author_id: session.id,
+          author_name: session.username,
+          created_at: new Date().toISOString()
+        });
+        savePolls(polls);
+        form.reset();
+        alertBox.textContent = "Voting subject opened.";
+        alertBox.className = "alert alert-success";
+        alertBox.classList.remove("hidden");
+        renderAdminPolls();
+      });
+    })();
 
 
     document.getElementById("new-admin-form").addEventListener("submit", e => {

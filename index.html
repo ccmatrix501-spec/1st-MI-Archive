@@ -2,9 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Tactical Archive – Login</title>
-  <link rel="stylesheet" href="css/style.css?v=3" />
+  <link rel="stylesheet" href="css/style.css?v=5" />
+  <style>
+    .input {
+      font-size: 16px !important;
+      min-height: 44px;
+      -webkit-appearance: none;
+      border-radius: 8px;
+    }
+    .btn {
+      min-height: 48px;
+      font-size: 1rem;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    #toggle-mode {
+      display: inline-block;
+      padding: 0.5rem;
+      min-height: 44px;
+    }
+    .login-wrap {
+      padding: 1rem;
+      align-items: flex-start;
+      padding-top: 8vh;
+    }
+    @media (max-width: 480px) {
+      .login-box { max-width: 100%; }
+      .panel { padding: 1.25rem 1rem; }
+    }
+  </style>
 </head>
 <body>
   <div class="login-wrap">
@@ -15,18 +43,32 @@
         <p>Secure community central archive</p>
       </div>
 
+      <!-- Already signed in? Allow switch -->
+      <div class="panel mb-4" id="session-box" style="display:none;">
+        <p class="text-sm" style="margin-bottom:0.75rem;">
+          Currently signed in as <strong id="session-name" style="color:#86efac;"></strong>
+        </p>
+        <div class="flex gap-2" style="flex-wrap:wrap;">
+          <a href="dashboard.html" class="btn btn-sm">Continue</a>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-switch">Sign out &amp; switch account</button>
+        </div>
+      </div>
+
       <div class="panel">
         <h2 id="form-title" class="text-center" style="font-size:1.1rem;margin-bottom:1.2rem;">Login</h2>
         <div id="alert" class="hidden"></div>
 
-        <form id="auth-form">
+        <form id="auth-form" action="#" method="post">
           <div class="form-group">
-            <label>Username</label>
-            <input type="text" id="username" class="input" required autocomplete="username" />
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" class="input"
+                   required autocomplete="username" autocapitalize="none"
+                   autocorrect="off" spellcheck="false" />
           </div>
           <div class="form-group">
-            <label>Password</label>
-            <input type="password" id="password" class="input" required autocomplete="current-password" />
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" class="input"
+                   required autocomplete="current-password" />
           </div>
           <button type="submit" class="btn w-full" id="submit-btn">Login</button>
         </form>
@@ -36,25 +78,51 @@
           <a href="#" id="toggle-mode" style="color:#86efac;">Register</a>
         </p>
       </div>
-</div>
+    </div>
   </div>
 
-  <script src="js/data.js?v=3"></script>
-  <script src="js/ranks-icons.js?v=3"></script>
-  <script>applyBackground();</script>
+  <script src="js/data.js?v=5"></script>
+  <script src="js/ranks-icons.js?v=5"></script>
   <script>
-    // Already logged in?
-    if (getSession()) window.location.href = "dashboard.html";
+    try { applyBackground(); } catch (e) {}
 
-    let isRegister = false;
-    const form = document.getElementById("auth-form");
-    const alertBox = document.getElementById("alert");
-    const toggle = document.getElementById("toggle-mode");
-    const title = document.getElementById("form-title");
-    const toggleText = document.getElementById("toggle-text");
-    const btn = document.getElementById("submit-btn");
+    // If already logged in, show switch UI instead of forcing redirect
+    try {
+      var existing = getSession();
+      if (existing) {
+        var box = document.getElementById("session-box");
+        box.style.display = "block";
+        document.getElementById("session-name").textContent = existing.username;
+        document.getElementById("form-title").textContent = "Switch Account";
+        document.getElementById("submit-btn").textContent = "Login as different user";
+      }
+    } catch (e) {}
 
-    toggle.addEventListener("click", e => {
+    document.getElementById("btn-switch").addEventListener("click", function() {
+      clearSession();
+      document.getElementById("session-box").style.display = "none";
+      document.getElementById("form-title").textContent = "Login";
+      document.getElementById("submit-btn").textContent = "Login";
+      document.getElementById("username").value = "";
+      document.getElementById("password").value = "";
+      document.getElementById("username").focus();
+    });
+
+    var isRegister = false;
+    var form = document.getElementById("auth-form");
+    var alertBox = document.getElementById("alert");
+    var toggle = document.getElementById("toggle-mode");
+    var title = document.getElementById("form-title");
+    var toggleText = document.getElementById("toggle-text");
+    var btn = document.getElementById("submit-btn");
+
+    function showError(msg) {
+      alertBox.textContent = msg;
+      alertBox.className = "alert alert-error";
+      alertBox.classList.remove("hidden");
+    }
+
+    toggle.addEventListener("click", function(e) {
       e.preventDefault();
       isRegister = !isRegister;
       title.textContent = isRegister ? "Register" : "Login";
@@ -64,21 +132,53 @@
       alertBox.classList.add("hidden");
     });
 
-    form.addEventListener("submit", e => {
+    form.addEventListener("submit", function(e) {
       e.preventDefault();
+      e.stopPropagation();
       alertBox.classList.add("hidden");
-      const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value;
 
-      const result = isRegister ? register(username, password) : login(username, password);
+      var username = document.getElementById("username").value.trim();
+      var password = document.getElementById("password").value;
 
-      if (result.error) {
-        alertBox.textContent = result.error;
-        alertBox.className = "alert alert-error";
-        alertBox.classList.remove("hidden");
-      } else {
-        window.location.href = "dashboard.html";
+      if (!username || !password) {
+        showError("Enter username and password.");
+        return false;
       }
+
+      // Clear any previous session so a new login can take over
+      clearSession();
+
+      btn.disabled = true;
+      btn.textContent = "Please wait...";
+
+      try {
+        var result = isRegister ? register(username, password) : login(username, password);
+
+        if (result && result.error) {
+          showError(result.error);
+          btn.disabled = false;
+          btn.textContent = isRegister ? "Create Account" : "Login";
+          return false;
+        }
+
+        var saved = getSession();
+        if (!saved) {
+          showError("Could not save login on this device. Turn off Private Browsing and try again.");
+          btn.disabled = false;
+          btn.textContent = isRegister ? "Create Account" : "Login";
+          return false;
+        }
+
+        setTimeout(function() {
+          window.location.replace("dashboard.html");
+        }, 50);
+      } catch (err) {
+        console.error(err);
+        showError("Login error: " + (err.message || "Unknown error"));
+        btn.disabled = false;
+        btn.textContent = isRegister ? "Create Account" : "Login";
+      }
+      return false;
     });
   </script>
 </body>

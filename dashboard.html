@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=3" />
-  <script src="js/data.js?v=3"></script>
-  <script src="js/ranks-icons.js?v=3"></script>
+  <link rel="stylesheet" href="css/style.css?v=5" />
+  <script src="js/data.js?v=5"></script>
+  <script src="js/ranks-icons.js?v=5"></script>
 </head>
 <body>
   <script>renderNavbar("dashboard.html"); applyBackground();</script>
@@ -37,6 +37,11 @@
         <h3>Reports</h3>
         <p>Classified & operational reports</p>
         <div class="count" id="c-reports">0</div>
+      </a>
+      <a href="voting.html" class="card">
+        <h3>Voting</h3>
+        <p>Unit subjects open for vote</p>
+        <div class="count" id="c-polls">0</div>
       </a>
       <a href="merits.html" class="card">
         <h3>Merits & Awards</h3>
@@ -80,6 +85,9 @@
     // Count only what the user can see
     const reports = getReports().filter(r => r.status === "published" && canAccess(session.rank_level, r.min_rank_level));
     document.getElementById("c-reports").textContent = reports.length;
+    const openPolls = (typeof getPolls === "function" ? getPolls() : []).filter(p => p.active);
+    const pollsEl = document.getElementById("c-polls");
+    if (pollsEl) pollsEl.textContent = openPolls.length;
     if (session.role === "admin") {
       document.getElementById("c-merits").textContent = getMerits().length;
     }

@@ -63,13 +63,19 @@ function load(key, fallback) {
   try {
     const raw = localStorage.getItem("ta_" + key);
     return raw ? JSON.parse(raw) : fallback;
-  } catch {
+  } catch (e) {
+    console.error("load error", key, e);
     return fallback;
   }
 }
 
 function save(key, value) {
-  localStorage.setItem("ta_" + key, JSON.stringify(value));
+  try {
+    localStorage.setItem("ta_" + key, JSON.stringify(value));
+  } catch (e) {
+    console.error("save error", key, e);
+    alert("Storage full or blocked on this device. Try leaving private browsing mode.");
+  }
 }
 
 function initDB() {
@@ -98,31 +104,63 @@ function initDB() {
   if (!localStorage.getItem("ta_tutorials")) save("tutorials", []);
   if (!localStorage.getItem("ta_links")) save("links", []);
   if (!localStorage.getItem("ta_comments")) save("comments", []);
+  if (!localStorage.getItem("ta_polls")) save("polls", []);
   if (!localStorage.getItem("ta_settings")) {
     save("settings", { background_image: "img/unit-logo.jpg" });
   }
+  if (!localStorage.getItem("ta_polls")) save("polls", []);
+  if (!localStorage.getItem("ta_votes")) save("votes", []);
 }
 
 // Auth
 function getSession() {
-  const raw = sessionStorage.getItem("ta_session");
-  return raw ? JSON.parse(raw) : null;
+  try {
+    // Prefer localStorage (more reliable on mobile); fall back to sessionStorage
+    const raw = localStorage.getItem("ta_session") || sessionStorage.getItem("ta_session");
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    console.error("getSession error", e);
+    return null;
+  }
 }
 
 function setSession(user) {
-  const safe = { id: user.id, username: user.username, role: user.role, rank_level: user.rank_level };
-  sessionStorage.setItem("ta_session", JSON.stringify(safe));
+  try {
+    const safe = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      rank_level: user.rank_level
+    };
+    const str = JSON.stringify(safe);
+    localStorage.setItem("ta_session", str);
+    try { sessionStorage.setItem("ta_session", str); } catch (_) {}
+  } catch (e) {
+    console.error("setSession error", e);
+    alert("Unable to save login on this device. Check if private browsing is on, or allow site data.");
+  }
 }
 
 function clearSession() {
-  sessionStorage.removeItem("ta_session");
+  try { localStorage.removeItem("ta_session"); } catch (_) {}
+  try { sessionStorage.removeItem("ta_session"); } catch (_) {}
+  try { localStorage.removeItem("ta_active_user"); } catch (_) {}
 }
 
 function login(username, password) {
   const users = load("users", []);
   const user = users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
   if (!user) return { error: "Invalid username or password" };
+
+  // Single active login per browser: sign out whoever was logged in before
+  clearSession();
   setSession(user);
+
+  // Mark active session owner (prevents switching accounts without logout on this device)
+  try {
+    localStorage.setItem("ta_active_user", user.id);
+  } catch (e) {}
+
   return { user };
 }
 
@@ -144,14 +182,16 @@ function register(username, password) {
   };
   users.push(user);
   save("users", users);
+  clearSession();
   setSession(user);
+  try { localStorage.setItem("ta_active_user", user.id); } catch (e) {}
   return { user };
 }
 
 function requireAuth() {
   const session = getSession();
   if (!session) {
-    window.location.href = "index.html";
+    window.location.replace("index.html");
     return null;
   }
   return session;
@@ -161,7 +201,7 @@ function requireStaff() {
   const session = requireAuth();
   if (!session) return null;
   if (session.role !== "admin" && session.role !== "moderator") {
-    window.location.href = "dashboard.html";
+    window.location.replace("dashboard.html");
     return null;
   }
   return session;
@@ -187,8 +227,15 @@ function getComments() { return load("comments", []); }
 function saveComments(data) { save("comments", data); }
 function getUsers() { return load("users", []); }
 function saveUsers(data) { save("users", data); }
+function getPolls() { return load("polls", []); }
+function savePolls(data) { save("polls", data); }
+
 function getSettings() { return load("settings", { background_image: "" }); }
 function saveSettings(data) { save("settings", data); }
+function getPolls() { return load("polls", []); }
+function savePolls(data) { save("polls", data); }
+function getVotes() { return load("votes", []); }
+function saveVotes(data) { save("votes", data); }
 
 // Export / Import
 function exportData() {
@@ -200,6 +247,7 @@ function exportData() {
     tutorials: getTutorials(),
     links: getLinks(),
     comments: getComments(),
+    polls: getPolls(),
     settings: getSettings(),
     exported_at: new Date().toISOString()
   };
@@ -224,6 +272,7 @@ function importData(file) {
         if (data.tutorials) saveTutorials(data.tutorials);
         if (data.links) saveLinks(data.links);
         if (data.comments) saveComments(data.comments);
+        if (data.polls) savePolls(data.polls);
         if (data.settings) saveSettings(data.settings);
         resolve(true);
       } catch (err) {
@@ -270,6 +319,7 @@ function renderNavbar(active) {
   const links = [
     { href: "dashboard.html", label: "Dashboard" },
     { href: "reports.html", label: "Reports" },
+    { href: "voting.html", label: "Voting" },
     { href: "training.html", label: "Training" },
     { href: "tutorials.html", label: "Tutorials" },
     { href: "tactical-centre.html", label: "Tactical Centre" },
