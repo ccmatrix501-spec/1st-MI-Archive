@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=s3" />
+  <link rel="stylesheet" href="css/style.css?v=s8" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=s3"></script>
-  <script src="js/data.js?v=s3"></script>
-  <script src="js/ranks-icons.js?v=s3"></script>
+  <script src="js/config.js?v=s8"></script>
+  <script src="js/data.js?v=s8"></script>
+  <script src="js/ranks-icons.js?v=s8"></script>
 </head>
 <body>
   <div id="app"><p class="text-muted text-center" style="padding:3rem;">Loading…</p></div>
@@ -52,80 +52,135 @@
       const profiles = await getProfiles();
       const members = profiles.filter(p => p.role === "member").length;
       const admins = profiles.filter(p => p.role === "admin").length;
+      const mods = profiles.filter(p => p.role === "moderator").length;
+
       let h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:0.5rem;">All Members</h2>';
-      h += '<p class="text-sm text-muted mb-4">Total '+profiles.length+' · Members '+members+' · Admins '+admins+'</p>';
+      h += '<p class="text-sm text-muted mb-4">Total ' + profiles.length +
+        ' · Members ' + members + ' · Moderators ' + mods + ' · Admins ' + admins + '</p>';
+      h += '<p class="text-xs text-muted mb-4">Edit username, rank, and role below, then click <strong>Save</strong>. Password resets for other users are done in Supabase → Authentication → Users.</p>';
+
       profiles.forEach(p => {
         const isYou = p.id === session.id;
-        h += '<div class="panel mb-2" style="padding:0.9rem;'+(isYou?'border-color:#3d7a3d;':'')+'">';
-        h += '<div class="flex justify-between" style="flex-wrap:wrap;gap:0.5rem;"><div><strong>'+esc(p.username)+'</strong>'+(isYou?' <span class="badge">YOU</span>':'')+'<div class="text-xs text-muted">'+formatRank(p.rank_level,14)+' · '+p.role+'</div></div>';
-        h += '<div class="flex gap-2" style="flex-wrap:wrap;align-items:end;">';
-        h += '<div><div class="text-xs text-muted">Rank</div><select class="select" id="rank-'+p.id+'" style="width:auto;">'+rankOptions(p.rank_level)+'</select></div>';
-        h += '<div><div class="text-xs text-muted">Role</div><select class="select" id="role-'+p.id+'" style="width:auto;"><option value="member"'+(p.role==='member'?' selected':'')+'>member</option><option value="moderator"'+(p.role==='moderator'?' selected':'')+'>moderator</option><option value="admin"'+(p.role==='admin'?' selected':'')+'>admin</option></select></div>';
-        h += '<button class="btn btn-sm" onclick="saveUser(\''+p.id+'\')">Save</button>';
-        h += '</div></div></div>';
+        const safeId = p.id;
+        h += '<div class="panel mb-3" style="padding:1rem;' + (isYou ? 'border-color:#3d7a3d;' : '') + '">';
+        h += '<div style="margin-bottom:0.75rem;"><strong>' + esc(p.username) + '</strong>';
+        if (isYou) h += ' <span class="badge" style="background:#14532d;color:#86efac;border-color:#166534;">YOU</span>';
+        h += '<div class="text-xs text-muted">' + formatRank(p.rank_level, 14) + ' · ' + esc(p.role) + '</div></div>';
+
+        h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.6rem;align-items:end;">';
+
+        h += '<div><div class="text-xs text-muted" style="margin-bottom:0.2rem;">Username</div>';
+        h += '<input class="input" id="user-' + safeId + '" value="' + esc(p.username) + '" style="min-height:38px;font-size:0.9rem;" /></div>';
+
+        h += '<div><div class="text-xs text-muted" style="margin-bottom:0.2rem;">Rank</div>';
+        h += '<select class="select" id="rank-' + safeId + '">' + rankOptions(p.rank_level) + '</select></div>';
+
+        h += '<div><div class="text-xs text-muted" style="margin-bottom:0.2rem;">Role</div>';
+        h += '<select class="select" id="role-' + safeId + '">';
+        h += '<option value="member"' + (p.role === 'member' ? ' selected' : '') + '>member</option>';
+        h += '<option value="moderator"' + (p.role === 'moderator' ? ' selected' : '') + '>moderator</option>';
+        h += '<option value="admin"' + (p.role === 'admin' ? ' selected' : '') + '>admin</option>';
+        h += '</select></div>';
+
+        h += '<div><button type="button" class="btn btn-sm" data-save-user="' + safeId + '">Save</button></div>';
+        h += '</div></div>';
       });
       h += '</div>';
+
       h += `<div class="panel mb-4">
         <h3 style="font-size:1rem;margin-bottom:0.8rem;">Create Member Account</h3>
-        <p class="text-sm text-muted mb-3">Creates a username + password account. They log in from any device worldwide.</p>
+        <p class="text-sm text-muted mb-3">Username + password. They can log in from any device.</p>
         <div id="create-alert" class="hidden"></div>
         <form id="create-form">
-          <div class="form-group"><label>Username (display)</label><input type="text" id="c-user" class="input" required minlength="3" /></div>
+          <div class="form-group"><label>Username</label><input type="text" id="c-user" class="input" required minlength="3" autocapitalize="none" /></div>
           <div class="form-group"><label>Password</label><input type="password" id="c-pass" class="input" required minlength="6" /></div>
-          <div class="form-group"><label>Rank</label><select id="c-rank" class="select">'+rankOptions(1)+'</select></div>
+          <div class="form-group"><label>Rank</label><select id="c-rank" class="select">${rankOptions(1)}</select></div>
           <div class="form-group"><label>Role</label><select id="c-role" class="select"><option value="member">member</option><option value="moderator">moderator</option><option value="admin">admin</option></select></div>
           <button type="submit" class="btn">Create Account</button>
         </form>
-        <p class="text-xs text-muted mt-3">After creating, you may be signed out of admin — just log back in.</p>
+        <p class="text-xs text-muted mt-3">Creating a user may sign you out — log back in as admin.</p>
+      </div>
+
+      <div class="panel">
+        <h3 style="font-size:1rem;margin-bottom:0.8rem;">Change your own password</h3>
+        <div id="pw-alert" class="hidden"></div>
+        <form id="pw-form">
+          <div class="form-group"><label>New password</label><input type="password" id="pw-new" class="input" required minlength="6" /></div>
+          <div class="form-group"><label>Confirm password</label><input type="password" id="pw-confirm" class="input" required minlength="6" /></div>
+          <button type="submit" class="btn">Update My Password</button>
+        </form>
+        <p class="text-xs text-muted mt-3">To reset another member's password: Supabase → Authentication → Users → select user → Reset password.</p>
       </div>`;
-      // fix broken string - rewrite create form properly
-      el.innerHTML = h.replace(`<select id="c-rank" class="select">'+rankOptions(1)+'</select>`, '<select id="c-rank" class="select">'+rankOptions(1)+'</select>');
 
-      // Fix: the template got messy. Rebuild create section cleanly.
-      const createHtml = `
-        <div class="panel mb-4">
-          <h3 style="font-size:1rem;margin-bottom:0.8rem;">Create Member Account</h3>
-          <p class="text-sm text-muted mb-3">Username + password only. They log in from any device worldwide.</p>
-          <div id="create-alert" class="hidden"></div>
-          <form id="create-form">
-            <div class="form-group"><label>Username</label><input type="text" id="c-user" class="input" required minlength="3" autocapitalize="none" /></div>
-            <div class="form-group"><label>Password</label><input type="password" id="c-pass" class="input" required minlength="6" /></div>
-            <div class="form-group"><label>Rank</label><select id="c-rank" class="select">${rankOptions(1)}</select></div>
-            <div class="form-group"><label>Role</label><select id="c-role" class="select"><option value="member">member</option><option value="moderator">moderator</option><option value="admin">admin</option></select></div>
-            <button type="submit" class="btn">Create Account</button>
-          </form>
-          <p class="text-xs text-muted mt-3">Note: creating a user may sign you out — log back in as admin.</p>
-        </div>`;
-      // Remove broken create panel if present and append good one
-      el.innerHTML = el.innerHTML.split('<div class="panel mb-4">\n        <h3')[0] + createHtml;
+      el.innerHTML = h;
 
-      document.getElementById("create-form").onsubmit = async function(e) {
-        e.preventDefault();
-        const username = document.getElementById("c-user").value.trim();
-        const password = document.getElementById("c-pass").value;
-        const rank = Number(document.getElementById("c-rank").value);
-        const role = document.getElementById("c-role").value;
-        const alert = document.getElementById("create-alert");
-        const result = await createMemberAccount(username, password, rank, role);
-        if (result.error) {
-          alert.textContent = result.error;
-          alert.className = "alert alert-error";
+      el.querySelectorAll("[data-save-user]").forEach(function(btn) {
+        btn.onclick = function() { saveUser(btn.getAttribute("data-save-user")); };
+      });
+
+      var createForm = document.getElementById("create-form");
+      if (createForm) {
+        createForm.onsubmit = async function(e) {
+          e.preventDefault();
+          var username = document.getElementById("c-user").value.trim();
+          var password = document.getElementById("c-pass").value;
+          var rank = Number(document.getElementById("c-rank").value);
+          var role = document.getElementById("c-role").value;
+          var alert = document.getElementById("create-alert");
+          var result = await createMemberAccount(username, password, rank, role);
+          if (result.error) {
+            alert.textContent = result.error;
+            alert.className = "alert alert-error";
+            alert.classList.remove("hidden");
+            return;
+          }
+          alert.textContent = "Account created for " + username + ". Log in again if signed out.";
+          alert.className = "alert alert-success";
           alert.classList.remove("hidden");
-          return;
-        }
-        alert.textContent = "Account created for " + username + ". Log in again if you were signed out.";
-        alert.className = "alert alert-success";
-        alert.classList.remove("hidden");
-        // try restore admin session won't work without password - just reload users after delay
-        setTimeout(() => location.reload(), 1500);
-      };
+          setTimeout(function() { location.reload(); }, 1200);
+        };
+      }
+
+      var pwForm = document.getElementById("pw-form");
+      if (pwForm) {
+        pwForm.onsubmit = async function(e) {
+          e.preventDefault();
+          var a = document.getElementById("pw-alert");
+          var n = document.getElementById("pw-new").value;
+          var c = document.getElementById("pw-confirm").value;
+          if (n.length < 6) { a.textContent = "Password min 6 characters"; a.className = "alert alert-error"; a.classList.remove("hidden"); return; }
+          if (n !== c) { a.textContent = "Passwords do not match"; a.className = "alert alert-error"; a.classList.remove("hidden"); return; }
+          var client = db();
+          var res = await client.auth.updateUser({ password: n });
+          if (res.error) {
+            a.textContent = res.error.message;
+            a.className = "alert alert-error";
+            a.classList.remove("hidden");
+            return;
+          }
+          a.textContent = "Password updated.";
+          a.className = "alert alert-success";
+          a.classList.remove("hidden");
+          pwForm.reset();
+        };
+      }
     }
 
     window.saveUser = async function(id) {
-      const rank = Number(document.getElementById("rank-"+id).value);
-      const role = document.getElementById("role-"+id).value;
-      const ok = await updateProfile(id, { rank_level: rank, role });
-      alert(ok ? "Saved." : "Failed to save (check admin permissions).");
+      var userEl = document.getElementById("user-" + id);
+      var rankEl = document.getElementById("rank-" + id);
+      var roleEl = document.getElementById("role-" + id);
+      if (!userEl || !rankEl || !roleEl) { alert("Could not find fields"); return; }
+      var username = userEl.value.trim();
+      if (username.length < 3) { alert("Username must be at least 3 characters"); return; }
+      var rank = Number(rankEl.value);
+      var role = roleEl.value;
+      var ok = await updateProfile(id, { username: username, rank_level: rank, role: role });
+      if (!ok) {
+        alert("Save failed. Check you are admin and RLS policies allow profile updates.");
+        return;
+      }
+      alert("Saved: " + username + " · " + getRankName(rank) + " · " + role);
       render("users");
     };
 
