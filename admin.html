@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=s9" />
+  <link rel="stylesheet" href="css/style.css?v=s12" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=s9"></script>
-  <script src="js/data.js?v=s9"></script>
-  <script src="js/ranks-icons.js?v=s9"></script>
+  <script src="js/config.js?v=s12"></script>
+  <script src="js/data.js?v=s12"></script>
+  <script src="js/ranks-icons.js?v=s12"></script>
 </head>
 <body>
   <div id="app"><p class="text-muted text-center" style="padding:3rem;">Loading…</p></div>
@@ -18,7 +18,7 @@
     function tabs(active) {
       const items = [
         ["reports","Reports"],["merits","Merits"],["training","Training"],
-        ["tutorials","Tutorials"],["links","Tactical Centre"],["users","Users"]
+        ["tutorials","Tutorials"],["links","Tactical Centre"],["users","Users"],["companies","Companies"]
       ];
       return items.map(([id,label]) =>
         `<button class="btn btn-sm ${active===id?'':'btn-outline'} tab-btn" data-tab="${id}" style="margin:0.2rem;">${label}</button>`
@@ -46,10 +46,12 @@
       else if (tab === "training") await renderTraining(body);
       else if (tab === "tutorials") await renderTutorials(body);
       else if (tab === "links") await renderLinks(body);
+      else if (tab === "companies") await renderCompanies(body);
     }
 
     async function renderUsers(el) {
       const profiles = await getProfiles();
+      const companies = await getCompanies();
       const members = profiles.filter(p => p.role === "member").length;
       const admins = profiles.filter(p => p.role === "admin").length;
       const mods = profiles.filter(p => p.role === "moderator").length;
@@ -81,6 +83,10 @@
         h += '<option value="moderator"' + (p.role === 'moderator' ? ' selected' : '') + '>moderator</option>';
         h += '<option value="admin"' + (p.role === 'admin' ? ' selected' : '') + '>admin</option>';
         h += '</select></div>';
+        h += '<div><div class="text-xs text-muted" style="margin-bottom:0.2rem;">Company</div>';
+        h += '<select class="select" id="company-' + safeId + '">' + buildCompanyOptions(companies, p.company_id || "", true) + '</select></div>';
+
+        h += '<div><div class="text-xs text-muted" style="margin-bottom:0.2rem;">Company</div><select class="select" id="co-' + safeId + '">' + buildCompanyOptions(companies, p.company_id || '', true) + '</select></div>';
 
         h += '<div class="flex gap-1" style="flex-wrap:wrap;">';h += '<button type="button" class="btn btn-sm" data-save-user="' + safeId + '">Save</button>';h += '<button type="button" class="btn btn-sm btn-outline" data-reset-pw="' + safeId + '" data-uname="' + esc(p.username) + '">Reset Password</button>';if (!isYou) h += '<button type="button" class="btn btn-sm btn-danger" data-del-user="' + safeId + '" data-uname="' + esc(p.username) + '">Delete</button>';h += '</div>';
         h += '</div></div>';
@@ -96,6 +102,7 @@
           <div class="form-group"><label>Password</label><input type="password" id="c-pass" class="input" required minlength="6" /></div>
           <div class="form-group"><label>Rank</label><select id="c-rank" class="select">${rankOptions(1)}</select></div>
           <div class="form-group"><label>Role</label><select id="c-role" class="select"><option value="member">member</option><option value="moderator">moderator</option><option value="admin">admin</option></select></div>
+          <div class="form-group"><label>Company</label><select id="c-company" class="select">${buildCompanyOptions(companies, "", false)}</select></div>
           <button type="submit" class="btn">Create Account</button>
         </form>
         <p class="text-xs text-muted mt-3">Creating a user may sign you out — log back in as admin.</p>
@@ -133,7 +140,8 @@
           var rank = Number(document.getElementById("c-rank").value);
           var role = document.getElementById("c-role").value;
           var alert = document.getElementById("create-alert");
-          var result = await createMemberAccount(username, password, rank, role);
+          var company_id = (document.getElementById('c-company') && document.getElementById('c-company').value) || null;
+          var result = await createMemberAccount(username, password, rank, role, company_id);
           if (result.error) {
             alert.textContent = result.error;
             alert.className = "alert alert-error";
@@ -181,6 +189,10 @@
       if (username.length < 3) { alert("Username must be at least 3 characters"); return; }
       var rank = Number(rankEl.value);
       var role = roleEl.value;
+      var companyEl = document.getElementById("company-" + id);
+      var company_id = companyEl && companyEl.value ? companyEl.value : null;
+      var coEl = document.getElementById("co-" + id);
+      var company_id = coEl && coEl.value ? coEl.value : null;
 
       // Change login username (auth email) + profile
       if (typeof adminUpdateUsername === "function") {
@@ -188,7 +200,7 @@
         if (ur.error) {
           // Fall back to profile-only if service role missing
           if (/SERVICE_ROLE|service_role|Add SUPABASE/i.test(ur.error)) {
-            var ok = await updateProfile(id, { username: username, rank_level: rank, role: role });
+            var ok = await updateProfile(id, { username: username, rank_level: rank, role: role, company_id: company_id });
             if (!ok) { alert(ur.error); return; }
             alert("Rank/role saved. To change LOGIN username, add SERVICE_ROLE key to config.js.\n\n" + ur.error);
             render("users");
@@ -199,7 +211,7 @@
         }
       }
 
-      var ok2 = await updateProfile(id, { username: username, rank_level: rank, role: role });
+      var ok2 = await updateProfile(id, { username: username, rank_level: rank, role: role, company_id: company_id });
       if (!ok2) {
         alert("Profile rank/role save failed. Check RLS admin update policy.");
         return;
@@ -231,21 +243,52 @@
 
     async function renderReports(el) {
       const rows = await getReports();
+      const companies = await getCompanies();
+      const profiles = await getProfiles();
+      const admins = profiles.filter(p => p.role === "admin" || p.role === "moderator");
+
       let h = `<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Report</h2>
         <form id="r-form">
           <div class="form-group"><label>Title</label><input id="r-title" class="input" required /></div>
           <div class="form-group"><label>Body</label><textarea id="r-body" class="textarea" required></textarea></div>
           <div class="form-group"><label>Min Rank</label><select id="r-rank" class="select">${rankOptions(1)}</select></div>
+          <div class="form-group"><label>Company</label><select id="r-company" class="select">${buildCompanyOptions(companies, "", true)}</select></div>
+          <div class="form-group"><label>Tag admins (they can see this even below min rank)</label>
+            <div id="r-tags" style="max-height:160px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:0.5rem;">`;
+      admins.forEach(a => {
+        h += '<label style="display:flex;gap:0.5rem;align-items:center;margin:0.25rem 0;"><input type="checkbox" class="r-tag" value="'+a.id+'" /> '+esc(a.username)+' <span class="text-xs text-muted">('+a.role+')</span></label>';
+      });
+      if (!admins.length) h += '<span class="text-xs text-muted">No admins/moderators found</span>';
+      h += `</div></div>
+          <div class="form-group"><label>Attach images / files</label><input type="file" id="r-files" class="input" multiple accept="image/*,.pdf,.doc,.docx,.txt,.zip" /></div>
           <label style="display:flex;gap:0.5rem;align-items:center;margin-bottom:1rem;"><input type="checkbox" id="r-class" /> Classified</label>
           <button class="btn" type="submit">Publish Report</button>
         </form></div><div class="panel"><h3 style="font-size:1rem;margin-bottom:0.8rem;">Existing</h3>`;
       rows.forEach(r => {
-        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><div><strong>'+esc(r.title)+'</strong><div class="text-xs text-muted">'+getRankName(r.min_rank_level)+'+</div></div><button class="btn btn-danger btn-sm" onclick="delReport(\''+r.id+'\')">Delete</button></div>';
+        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><div><strong>'+esc(r.title)+'</strong><div class="text-xs text-muted">'+getRankName(r.min_rank_level)+'+ · '+esc(companyName(companies, r.company_id))+(r.attachments&&r.attachments.length?' · 📎 '+r.attachments.length:'')+'</div></div><button class="btn btn-danger btn-sm" onclick="delReport(\''+r.id+'\')">Delete</button></div>';
       });
       h += '</div>';
       el.innerHTML = h;
       document.getElementById("r-form").onsubmit = async function(e) {
         e.preventDefault();
+        var btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = "Uploading…";
+        var attachments = [];
+        var fileInput = document.getElementById("r-files");
+        if (fileInput.files && fileInput.files.length) {
+          var up = await uploadFiles(fileInput.files, "reports");
+          if (up.error) {
+            alert("Upload failed: " + up.error + "\n\nCreate Storage bucket 'archive-files' in Supabase if missing.");
+            btn.disabled = false;
+            btn.textContent = "Publish Report";
+            return;
+          }
+          attachments = up.files || [];
+        }
+        var tagged = [];
+        document.querySelectorAll(".r-tag:checked").forEach(function(cb){ tagged.push(cb.value); });
+        var companyVal = document.getElementById("r-company").value;
         await saveReport({
           title: document.getElementById("r-title").value.trim(),
           body: document.getElementById("r-body").value,
@@ -253,7 +296,10 @@
           is_classified: document.getElementById("r-class").checked,
           status: "published",
           author_id: session.id,
-          author_name: session.username
+          author_name: session.username,
+          company_id: companyVal || null,
+          tagged_admin_ids: tagged,
+          attachments: attachments
         });
         render("reports");
       };
@@ -371,7 +417,40 @@
     }
     window.delLink = async function(id){ if(confirm("Delete?")){ await deleteLink(id); render("links"); }};
 
-    (async function() {
+    
+    async function renderCompanies(el) {
+      const companies = await getCompanies();
+      let h = `<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Company</h2>
+        <form id="co-form" class="flex gap-2" style="flex-wrap:wrap;align-items:end;">
+          <div class="form-group" style="margin:0;"><label>Name</label><input id="co-name" class="input" required placeholder="Delta Company" /></div>
+          <div class="form-group" style="margin:0;"><label>Code</label><input id="co-code" class="input" placeholder="D" style="width:5rem;" /></div>
+          <button class="btn" type="submit">Add</button>
+        </form></div><div class="panel"><h3 style="font-size:1rem;margin-bottom:0.8rem;">Companies</h3>`;
+      if (!companies.length) h += '<p class="text-muted text-sm">No companies yet. Run the SQL migration to seed Demon, Nightmare, Cerberus, Hellfire.</p>';
+      companies.forEach(c => {
+        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><div><strong>'+esc(c.name)+'</strong> <span class="text-xs text-muted">'+(c.code||"")+'</span></div>';
+        h += '<button class="btn btn-danger btn-sm" data-del-co="'+c.id+'">Delete</button></div>';
+      });
+      h += '</div>';
+      el.innerHTML = h;
+      document.getElementById("co-form").onsubmit = async function(e) {
+        e.preventDefault();
+        await saveCompany({
+          name: document.getElementById("co-name").value.trim(),
+          code: document.getElementById("co-code").value.trim() || null
+        });
+        render("companies");
+      };
+      el.querySelectorAll("[data-del-co]").forEach(function(btn) {
+        btn.onclick = async function() {
+          if (!confirm("Delete this company?")) return;
+          await deleteCompany(btn.getAttribute("data-del-co"));
+          render("companies");
+        };
+      });
+    }
+
+(async function() {
       initSupabase();
       session = await requireAdmin();
       if (!session) return;
