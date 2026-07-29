@@ -186,20 +186,30 @@ create policy "read reports by rank company tag" on reports for select to authen
   using (
     status = 'published'
     and (
-      exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
+      -- tagged users (selected admins/members) always see it
+      (auth.uid() = any (coalesce(tagged_admin_ids, '{}'::uuid[])))
       or (
-        min_rank_level <= (select rank_level from profiles where id = auth.uid())
+        -- must meet min rank
+        min_rank_level <= coalesce((select rank_level from profiles where id = auth.uid()), 0)
+        -- and company: unit-wide OR same company (no admin/moderator bypass)
         and (
           company_id is null
           or company_id = (select company_id from profiles where id = auth.uid())
-          or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'moderator')
         )
       )
-      or (auth.uid() = any (tagged_admin_ids))
     )
   );
+-- Staff can write without getting a free SELECT bypass
 drop policy if exists "staff write reports" on reports;
-create policy "staff write reports" on reports for all to authenticated
+drop policy if exists "staff insert reports" on reports;
+drop policy if exists "staff update reports" on reports;
+drop policy if exists "staff delete reports" on reports;
+create policy "staff insert reports" on reports for insert to authenticated
+  with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('admin','moderator')));
+create policy "staff update reports" on reports for update to authenticated
+  using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('admin','moderator')))
+  with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('admin','moderator')));
+create policy "staff delete reports" on reports for delete to authenticated
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('admin','moderator')));
 
 drop policy if exists "admin merits" on merits;

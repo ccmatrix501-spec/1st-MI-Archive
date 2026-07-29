@@ -101,19 +101,14 @@
     };
   }
 
-  function getSession() {
-    return getAppUser();
-  }
+  function getSession() { return getAppUser(); }
 
   async function loadSession() {
     var client = db();
     if (!client) return null;
     var res = await client.auth.getSession();
     _session = res.data && res.data.session;
-    if (!_session) {
-      _profile = null;
-      return null;
-    }
+    if (!_session) { _profile = null; return null; }
     var pr = await client.from("profiles").select("*").eq("id", _session.user.id).maybeSingle();
     _profile = pr.data || null;
     return getAppUser();
@@ -137,17 +132,13 @@
     }
     if (!res.data || !res.data.user) return { error: "Login failed (no user)" };
     _session = res.data.session;
-
     var pr = await client.from("profiles").select("*").eq("id", res.data.user.id).maybeSingle();
     if (pr.error) return { error: "Profile read failed: " + pr.error.message };
     _profile = pr.data;
     if (!_profile) {
       var uname = String(username || "").trim().toLowerCase() || "user";
       var ins = await client.from("profiles").insert({
-        id: res.data.user.id,
-        username: uname,
-        role: "member",
-        rank_level: 1
+        id: res.data.user.id, username: uname, role: "member", rank_level: 1
       }).select("*").maybeSingle();
       if (ins.error) return { error: "No profile row. Run profile SQL. (" + ins.error.message + ")" };
       _profile = ins.data;
@@ -158,27 +149,20 @@
   async function logout() {
     var client = db();
     if (client) await client.auth.signOut();
-    _session = null;
-    _profile = null;
+    _session = null; _profile = null;
     global.location.href = "index.html";
   }
 
   async function requireAuth() {
     var user = await loadSession();
-    if (!user) {
-      global.location.replace("index.html");
-      return null;
-    }
+    if (!user) { global.location.replace("index.html"); return null; }
     return user;
   }
 
   async function requireAdmin() {
     var user = await requireAuth();
     if (!user) return null;
-    if (user.role !== "admin") {
-      global.location.replace("dashboard.html");
-      return null;
-    }
+    if (user.role !== "admin") { global.location.replace("dashboard.html"); return null; }
     return user;
   }
 
@@ -186,10 +170,32 @@
     var user = await requireAuth();
     if (!user) return null;
     if (user.role !== "admin" && user.role !== "moderator") {
-      global.location.replace("dashboard.html");
-      return null;
+      global.location.replace("dashboard.html"); return null;
     }
     return user;
+  }
+
+  function canSeeReport(report, user) {
+    // Strict for everyone including admins:
+    // tagged users always see it; otherwise must meet min rank AND company (or unit-wide).
+    if (!report || !user) return false;
+    var tags = report.tagged_admin_ids || [];
+    if (tags.indexOf(user.id) >= 0) return true;
+    if (!canAccess(user.rank_level, report.min_rank_level || 1)) return false;
+    if (report.company_id) {
+      if (!user.company_id || user.company_id !== report.company_id) return false;
+    }
+    return true;
+  }
+
+  function canSeePoll(poll, user) {
+    if (!poll || !user) return false;
+    if (user.role === "admin" || user.role === "moderator") return true;
+    if (!canAccess(user.rank_level, poll.min_rank_level || 1)) return false;
+    if (poll.company_id) {
+      if (!user.company_id || user.company_id !== poll.company_id) return false;
+    }
+    return true;
   }
 
   async function getReports() {
@@ -326,41 +332,6 @@
     } catch (e) {}
   }
 
-  async function createMemberAccount(username, password, rankLevel, role, companyId) {
-    role = role || "member";
-    rankLevel = Number(rankLevel) || 1;
-    companyId = companyId || null;
-    username = String(username || "").trim();
-    if (username.length < 3) return { error: "Username too short" };
-    if (!password || password.length < 6) return { error: "Password must be at least 6 characters" };
-    var client = db();
-    var email = usernameToEmail(username);
-    var existing = await client.from("profiles").select("id").eq("username", username).maybeSingle();
-    if (existing.data) return { error: "Username already taken" };
-    var res = await client.auth.signUp({
-      email: email,
-      password: password,
-      options: { data: { username: username, role: role, rank_level: rankLevel } }
-    });
-    if (res.error) {
-      var msg = res.error.message || "Could not create account";
-      if (/already|registered|exists/i.test(msg)) return { error: "Username already taken" };
-      return { error: msg };
-    }
-    if (res.data && res.data.user) {
-      await client.from("profiles").upsert({
-        id: res.data.user.id,
-        username: username,
-        role: role,
-        rank_level: rankLevel,
-        company_id: companyId
-      });
-    }
-    return { user: res.data && res.data.user };
-  }
-
-
-
   async function getCompanies() {
     var r = await db().from("companies").select("*").order("name");
     return r.data || [];
@@ -371,10 +342,6 @@
   }
   async function deleteCompany(id) {
     return !(await db().from("companies").delete().eq("id", id)).error;
-  }
-  function companyOptions(selected, includeAll) {
-    // filled async by callers usually; helper for static empty
-    return "";
   }
   function buildCompanyOptions(companies, selected, includeUnitWide) {
     var h = "";
@@ -395,7 +362,6 @@
     return "—";
   }
 
-  /** Upload file to Storage bucket archive-files. Returns { path, url, name, mime, size } */
   async function uploadFile(file, folder) {
     folder = folder || "uploads";
     var client = db();
@@ -404,24 +370,16 @@
     var safe = String(file.name || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
     var path = folder + "/" + Date.now() + "_" + safe;
     var up = await client.storage.from("archive-files").upload(path, file, {
-      cacheControl: "3600",
-      upsert: false
+      cacheControl: "3600", upsert: false
     });
     if (up.error) return { error: up.error.message };
     var pub = client.storage.from("archive-files").getPublicUrl(path);
     var url = pub.data && pub.data.publicUrl;
-    // also try signed if public fails
     if (!url) {
       var signed = await client.storage.from("archive-files").createSignedUrl(path, 60 * 60 * 24 * 365);
       url = signed.data && signed.data.signedUrl;
     }
-    return {
-      path: path,
-      url: url,
-      name: file.name,
-      mime: file.type,
-      size: file.size
-    };
+    return { path: path, url: url, name: file.name, mime: file.type, size: file.size };
   }
 
   async function uploadFiles(fileList, folder) {
@@ -435,32 +393,33 @@
     return { files: out };
   }
 
-
-  function canSeeReport(report, user) {
-    if (!report || !user) return false;
-    if (user.role === "admin") return true;
-    // company scope: unit-wide (null) visible to all; else must match
-    if (report.company_id && user.company_id && report.company_id !== user.company_id) {
-      // moderators can see all companies
-      if (user.role !== "moderator") return false;
+  async function createMemberAccount(username, password, rankLevel, role, companyId) {
+    role = role || "member";
+    rankLevel = Number(rankLevel) || 1;
+    companyId = companyId || null;
+    username = String(username || "").trim();
+    if (username.length < 3) return { error: "Username too short" };
+    if (!password || password.length < 6) return { error: "Password must be at least 6 characters" };
+    var client = db();
+    var email = usernameToEmail(username);
+    var existing = await client.from("profiles").select("id").eq("username", username).maybeSingle();
+    if (existing.data) return { error: "Username already taken" };
+    var res = await client.auth.signUp({
+      email: email, password: password,
+      options: { data: { username: username, role: role, rank_level: rankLevel } }
+    });
+    if (res.error) {
+      var msg = res.error.message || "Could not create account";
+      if (/already|registered|exists/i.test(msg)) return { error: "Username already taken" };
+      return { error: msg };
     }
-    if (report.company_id && !user.company_id && user.role !== "moderator") return false;
-    // rank gate OR tagged admin/mod
-    var rankOk = Number(user.rank_level) >= Number(report.min_rank_level || 1);
-    var tags = report.tagged_admin_ids || [];
-    var tagged = tags.indexOf(user.id) >= 0;
-    if (rankOk || tagged) return true;
-    return false;
-  }
-
-  function canSeePoll(poll, user) {
-    if (!poll || !user) return false;
-    if (user.role === "admin" || user.role === "moderator") return true;
-    if (!canAccess(user.rank_level, poll.min_rank_level || 1)) return false;
-    if (poll.company_id) {
-      if (!user.company_id || user.company_id !== poll.company_id) return false;
+    if (res.data && res.data.user) {
+      await client.from("profiles").upsert({
+        id: res.data.user.id, username: username, role: role,
+        rank_level: rankLevel, company_id: companyId
+      });
     }
-    return true;
+    return { user: res.data && res.data.user };
   }
 
   function getAdminClient() {
@@ -479,15 +438,11 @@
     if (newUsername.length < 3) return { error: "Username too short" };
     var admin = getAdminClient();
     if (!admin) return { error: "Add SUPABASE_SERVICE_ROLE_KEY to js/config.js to change login usernames." };
-
-    // Check taken
     var existing = await db().from("profiles").select("id").eq("username", newUsername).maybeSingle();
     if (existing.data && existing.data.id !== userId) return { error: "Username already taken" };
-
     var newEmail = newUsername + "@unit.local";
     var authRes = await admin.auth.admin.updateUserById(userId, { email: newEmail, email_confirm: true });
     if (authRes.error) return { error: "Auth update failed: " + authRes.error.message };
-
     var up = await admin.from("profiles").update({ username: newUsername }).eq("id", userId);
     if (up.error) return { error: "Profile update failed: " + up.error.message };
     return { ok: true };
@@ -505,16 +460,12 @@
   async function adminDeleteUser(userId) {
     var admin = getAdminClient();
     if (!admin) return { error: "Add SUPABASE_SERVICE_ROLE_KEY to js/config.js to delete accounts." };
-    // profiles cascade from auth.users if FK set; delete auth user
     var res = await admin.auth.admin.deleteUser(userId);
     if (res.error) return { error: res.error.message };
-    // cleanup profile if still there
     await admin.from("profiles").delete().eq("id", userId);
     return { ok: true };
   }
 
-
-  // Export to window (no name collision with CDN global.supabase)
   global.RANKS = RANKS;
   global.usernameToEmail = usernameToEmail;
   global.getRankName = getRankName;
@@ -531,6 +482,8 @@
   global.requireAuth = requireAuth;
   global.requireAdmin = requireAdmin;
   global.requireStaff = requireStaff;
+  global.canSeeReport = canSeeReport;
+  global.canSeePoll = canSeePoll;
   global.getReports = getReports;
   global.saveReport = saveReport;
   global.deleteReport = deleteReport;
@@ -567,13 +520,10 @@
   global.companyName = companyName;
   global.uploadFile = uploadFile;
   global.uploadFiles = uploadFiles;
-
   global.getAdminClient = getAdminClient;
   global.adminUpdateUsername = adminUpdateUsername;
   global.adminSetPassword = adminSetPassword;
   global.adminDeleteUser = adminDeleteUser;
-  global.canSeeReport = canSeeReport;
-  global.canSeePoll = canSeePoll;
 
   initSupabase();
 })(typeof window !== "undefined" ? window : this);

@@ -1,69 +1,72 @@
-# Tactical Archive – Pure HTML (GitHub Pages)
+# Tactical Archive (GitHub Pages + Supabase)
 
-100% client-side archive. No backend. Runs on GitHub Pages.
+Shared unit archive: reports, voting, training, tutorials, tactical centre links, merits.
+Username login only (no email/phone for members). Hosted as static HTML on GitHub Pages.
+
+## Quick setup
+
+### 1. Fill keys
+
+Edit `js/config.js`:
+
+- `SUPABASE_ANON_KEY` — Project Settings → API → anon public
+- `SUPABASE_SERVICE_ROLE_KEY` — service_role (secret; only for admin password reset / delete / login username change)
+
+### 2. Run SQL
+
+Supabase → SQL Editor → paste and run `sql/setup.sql`
+
+### 3. Auth settings
+
+- Authentication → Providers → Email → **enable** Email + Sign ups  
+- **Disable** Confirm email (for testing)
+
+### 4. Create first admin
+
+Authentication → Users → Add user  
+
+- Email: `admin@unit.local`  
+- Password: your choice  
+
+Then SQL:
+
+```sql
+insert into profiles (id, username, role, rank_level)
+select id, 'admin', 'admin', 22
+from auth.users
+where email = 'admin@unit.local'
+on conflict (id) do update
+  set username = 'admin', role = 'admin', rank_level = 22;
+```
+
+Login on the site with username **admin** and that password.
+
+### 5. Deploy to GitHub Pages
+
+Upload the whole folder to your repo root (or `/docs`).  
+Settings → Pages → Deploy from branch → root (or docs).
+
+Site URL example: `https://YOURUSER.github.io/REPO/`
 
 ## Features
 
-- Login / Register
-- 22 military ranks (Private → General)
-- Rank-gated Reports
-- Merits & Awards
-- Training materials
-- Tutorial videos
-- Tactical Centre links
-- Comments on reports
-- Full Admin panel with **Edit** support for all content
-- Create / promote admins
-- Profile settings (change password + site background image)
-- Export / Import as JSON
+| Feature | Details |
+|--------|---------|
+| Login | Username + password (`name@unit.local` under the hood) |
+| Ranks | Private → General (22 levels) |
+| Companies | Demon, Nightmare, Cerberus, Hellfire |
+| Reports | Min rank + company (or tagged). **No admin bypass.** Admins can edit reports they can access. |
+| Voting | Yes/No/Maybe, min rank, company scope |
+| Admin | Create members, reset passwords, delete accounts, manage content |
 
-## Ranks
+## Files
 
-1. Private  
-2. Private First Class  
-3. Lance Corporal  
-4. Specialist  
-5. Corporal  
-6. Sergeant  
-7. Staff Sergeant  
-8. Gunnery Sergeant  
-9. Master Sergeant  
-10. First Sergeant  
-11. Master Gunnery Sergeant  
-12. Officer Cadet  
-13. Second Lieutenant  
-14. First Lieutenant  
-15. Captain  
-16. Warrant Officer  
-17. Sergeant Major  
-18. Command Sergeant Major  
-19. Major  
-20. Lieutenant Colonel  
-21. Colonel  
-22. General  
-
-## Setup on GitHub Pages
-
-1. Create a public GitHub repo  
-2. Upload all files from this folder  
-3. Settings → Pages → Source = `main` / root  
-4. Site goes live at `https://YOUR_USERNAME.github.io/REPO_NAME/`
-
-## Default admin
-
-| Username | Password  |
-|----------|-----------|
-| admin    | admin123  |
-
-Go to **Profile** (admins only) to change password and set a background image.
-
-## Sharing data with the unit
-
-1. Admin creates content  
-2. Admin → Export / Import → Download Backup JSON  
-3. Share the JSON file  
-4. Members import it  
-
----
-
-All data is stored in the browser (localStorage). Not real server security.
+- `index.html` — login  
+- `dashboard.html` — home  
+- `reports.html` / `report.html`  
+- `voting.html`  
+- `training.html` / `tutorials.html` / `tactical-centre.html` / `merits.html`  
+- `admin.html` / `profile.html`  
+- `js/config.js` `js/data.js` `js/ranks-icons.js`  
+- `css/style.css`  
+- `sql/setup.sql`

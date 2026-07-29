@@ -4,42 +4,35 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=s12" />
+  <link rel="stylesheet" href="css/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=s12"></script>
-  <script src="js/data.js?v=s12"></script>
-  <script src="js/ranks-icons.js?v=s12"></script>
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/ranks-icons.js"></script>
 </head>
 <body>
   <div id="app"><p class="text-muted text-center" style="padding:3rem;">Loading…</p></div>
   <script>
-    let session = null;
-
+    var session = null, companies = [];
     function tabs(active) {
-      const items = [
-        ["reports","Reports"],["merits","Merits"],["training","Training"],
-        ["tutorials","Tutorials"],["links","Tactical Centre"],["users","Users"],["companies","Companies"]
-      ];
-      return items.map(([id,label]) =>
-        `<button class="btn btn-sm ${active===id?'':'btn-outline'} tab-btn" data-tab="${id}" style="margin:0.2rem;">${label}</button>`
-      ).join("");
+      var items = [["reports","Reports"],["merits","Merits"],["training","Training"],["tutorials","Tutorials"],["links","Tactical Centre"],["users","Users"],["companies","Companies"]];
+      return items.map(function(it) {
+        return '<button class="btn btn-sm '+(active===it[0]?'':'btn-outline')+' tab-btn" data-tab="'+it[0]+'" style="margin:0.2rem;">'+it[1]+'</button>';
+      }).join("");
     }
-
     async function render(tab) {
       tab = tab || "reports";
-      let html = '<nav class="navbar"><div class="nav-inner"><div class="nav-brand"><span>◆</span> TACTICAL ARCHIVE</div><div class="nav-links">';
-      [["dashboard.html","Dashboard"],["reports.html","Reports"],["voting.html","Voting"],["training.html","Training"],["tutorials.html","Tutorials"],["tactical-centre.html","Tactical Centre"],["merits.html","Merits"],["admin.html","Admin"],["profile.html","Profile"]].forEach(([h,l]) => {
-        html += '<a href="'+h+'" class="'+(h==="admin.html"?"active":"")+'" style="color:#fbbf24">'+l+'</a>';
+      var html = '<nav class="navbar"><div class="nav-inner"><div class="nav-brand"><span>◆</span> TACTICAL ARCHIVE</div><div class="nav-links">';
+      [["dashboard.html","Dashboard"],["reports.html","Reports"],["voting.html","Voting"],["admin.html","Admin"],["profile.html","Profile"]].forEach(function(p) {
+        html += '<a href="'+p[0]+'" class="'+(p[0]==="admin.html"?"active":"")+'" style="color:#fbbf24">'+p[1]+'</a>';
       });
-      html += '</div><div class="nav-user"><div><div style="font-weight:600">'+esc(session.username)+'</div><div>'+formatRank(session.rank_level)+' · admin</div></div><button class="btn-logout" onclick="logout()">Logout</button></div></div></nav>';
+      html += '</div><div class="nav-user"><div><div style="font-weight:600">'+esc(session.username)+'</div></div><button class="btn-logout" onclick="logout()">Logout</button></div></div></nav>';
       html += '<div class="container"><h1 style="font-size:1.45rem;margin-bottom:1rem;">Admin Panel</h1>';
-      html += '<div class="mb-4">'+tabs(tab)+'</div>';
-      html += '<div id="tab-body"></div></div>';
+      html += '<div class="mb-4">'+tabs(tab)+'</div><div id="tab-body"></div></div>';
       document.getElementById("app").innerHTML = html;
-      document.querySelectorAll(".tab-btn").forEach(btn => {
-        btn.onclick = () => render(btn.dataset.tab);
-      });
-      const body = document.getElementById("tab-body");
+      document.querySelectorAll(".tab-btn").forEach(function(btn){ btn.onclick = function(){ render(btn.dataset.tab); }; });
+      companies = await getCompanies();
+      var body = document.getElementById("tab-body");
       if (tab === "users") await renderUsers(body);
       else if (tab === "reports") await renderReports(body);
       else if (tab === "merits") await renderMerits(body);
@@ -50,407 +43,321 @@
     }
 
     async function renderUsers(el) {
-      const profiles = await getProfiles();
-      const companies = await getCompanies();
-      const members = profiles.filter(p => p.role === "member").length;
-      const admins = profiles.filter(p => p.role === "admin").length;
-      const mods = profiles.filter(p => p.role === "moderator").length;
-
-      let h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:0.5rem;">All Members</h2>';
-      h += '<p class="text-sm text-muted mb-4">Total ' + profiles.length +
-        ' · Members ' + members + ' · Moderators ' + mods + ' · Admins ' + admins + '</p>';
-      h += '<p class="text-xs text-muted mb-4">Edit username (login name), rank, and role → <strong>Save</strong>. Use <strong>Reset Password</strong> or <strong>Delete</strong> as needed. Requires service_role key in config.js.</p>';
-
-      profiles.forEach(p => {
-        const isYou = p.id === session.id;
-        const safeId = p.id;
-        h += '<div class="panel mb-3" style="padding:1rem;' + (isYou ? 'border-color:#3d7a3d;' : '') + '">';
-        h += '<div style="margin-bottom:0.75rem;"><strong>' + esc(p.username) + '</strong>';
-        if (isYou) h += ' <span class="badge" style="background:#14532d;color:#86efac;border-color:#166534;">YOU</span>';
-        h += '<div class="text-xs text-muted">' + formatRank(p.rank_level, 14) + ' · ' + esc(p.role) + '</div></div>';
-
+      var profiles = await getProfiles();
+      var h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:0.5rem;">All Members</h2>';
+      h += '<p class="text-xs text-muted mb-4">Edit username (login), rank, role, company → Save. Reset Password / Delete need service_role key in config.js.</p>';
+      profiles.forEach(function(p) {
+        var isYou = p.id === session.id;
+        h += '<div class="panel mb-3" style="padding:1rem;'+(isYou?'border-color:#3d7a3d;':'')+'">';
+        h += '<div style="margin-bottom:0.75rem;"><strong>'+esc(p.username)+'</strong>'+(isYou?' <span class="badge">YOU</span>':'');
+        h += '<div class="text-xs text-muted">'+formatRank(p.rank_level,14)+' · '+esc(p.role)+' · '+esc(companyName(companies, p.company_id))+'</div></div>';
         h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.6rem;align-items:end;">';
-
-        h += '<div><div class="text-xs text-muted" style="margin-bottom:0.2rem;">Username</div>';
-        h += '<input class="input" id="user-' + safeId + '" value="' + esc(p.username) + '" style="min-height:38px;font-size:0.9rem;" /></div>';
-
-        h += '<div><div class="text-xs text-muted" style="margin-bottom:0.2rem;">Rank</div>';
-        h += '<select class="select" id="rank-' + safeId + '">' + rankOptions(p.rank_level) + '</select></div>';
-
-        h += '<div><div class="text-xs text-muted" style="margin-bottom:0.2rem;">Role</div>';
-        h += '<select class="select" id="role-' + safeId + '">';
-        h += '<option value="member"' + (p.role === 'member' ? ' selected' : '') + '>member</option>';
-        h += '<option value="moderator"' + (p.role === 'moderator' ? ' selected' : '') + '>moderator</option>';
-        h += '<option value="admin"' + (p.role === 'admin' ? ' selected' : '') + '>admin</option>';
-        h += '</select></div>';
-        h += '<div><div class="text-xs text-muted" style="margin-bottom:0.2rem;">Company</div>';
-        h += '<select class="select" id="company-' + safeId + '">' + buildCompanyOptions(companies, p.company_id || "", true) + '</select></div>';
-
-        h += '<div><div class="text-xs text-muted" style="margin-bottom:0.2rem;">Company</div><select class="select" id="co-' + safeId + '">' + buildCompanyOptions(companies, p.company_id || '', true) + '</select></div>';
-
-        h += '<div class="flex gap-1" style="flex-wrap:wrap;">';h += '<button type="button" class="btn btn-sm" data-save-user="' + safeId + '">Save</button>';h += '<button type="button" class="btn btn-sm btn-outline" data-reset-pw="' + safeId + '" data-uname="' + esc(p.username) + '">Reset Password</button>';if (!isYou) h += '<button type="button" class="btn btn-sm btn-danger" data-del-user="' + safeId + '" data-uname="' + esc(p.username) + '">Delete</button>';h += '</div>';
-        h += '</div></div>';
+        h += '<div><div class="text-xs text-muted">Username</div><input class="input" id="user-'+p.id+'" value="'+esc(p.username)+'" style="min-height:38px;font-size:0.9rem;" /></div>';
+        h += '<div><div class="text-xs text-muted">Rank</div><select class="select" id="rank-'+p.id+'">'+rankOptions(p.rank_level)+'</select></div>';
+        h += '<div><div class="text-xs text-muted">Role</div><select class="select" id="role-'+p.id+'"><option value="member"'+(p.role==='member'?' selected':'')+'>member</option><option value="moderator"'+(p.role==='moderator'?' selected':'')+'>moderator</option><option value="admin"'+(p.role==='admin'?' selected':'')+'>admin</option></select></div>';
+        h += '<div><div class="text-xs text-muted">Company</div><select class="select" id="company-'+p.id+'">'+buildCompanyOptions(companies, p.company_id||"", true)+'</select></div>';
+        h += '<div class="flex gap-1" style="flex-wrap:wrap;">';
+        h += '<button type="button" class="btn btn-sm" data-save-user="'+p.id+'">Save</button>';
+        h += '<button type="button" class="btn btn-sm btn-outline" data-reset-pw="'+p.id+'" data-uname="'+esc(p.username)+'">Reset Password</button>';
+        if (!isYou) h += '<button type="button" class="btn btn-sm btn-danger" data-del-user="'+p.id+'" data-uname="'+esc(p.username)+'">Delete</button>';
+        h += '</div></div></div>';
       });
       h += '</div>';
-
-      h += `<div class="panel mb-4">
-        <h3 style="font-size:1rem;margin-bottom:0.8rem;">Create Member Account</h3>
-        <p class="text-sm text-muted mb-3">Username + password. They can log in from any device.</p>
-        <div id="create-alert" class="hidden"></div>
-        <form id="create-form">
-          <div class="form-group"><label>Username</label><input type="text" id="c-user" class="input" required minlength="3" autocapitalize="none" /></div>
-          <div class="form-group"><label>Password</label><input type="password" id="c-pass" class="input" required minlength="6" /></div>
-          <div class="form-group"><label>Rank</label><select id="c-rank" class="select">${rankOptions(1)}</select></div>
-          <div class="form-group"><label>Role</label><select id="c-role" class="select"><option value="member">member</option><option value="moderator">moderator</option><option value="admin">admin</option></select></div>
-          <div class="form-group"><label>Company</label><select id="c-company" class="select">${buildCompanyOptions(companies, "", false)}</select></div>
-          <button type="submit" class="btn">Create Account</button>
-        </form>
-        <p class="text-xs text-muted mt-3">Creating a user may sign you out — log back in as admin.</p>
-      </div>
-
-      <div class="panel">
-        <h3 style="font-size:1rem;margin-bottom:0.8rem;">Change your own password</h3>
-        <div id="pw-alert" class="hidden"></div>
-        <form id="pw-form">
-          <div class="form-group"><label>New password</label><input type="password" id="pw-new" class="input" required minlength="6" /></div>
-          <div class="form-group"><label>Confirm password</label><input type="password" id="pw-confirm" class="input" required minlength="6" /></div>
-          <button type="submit" class="btn">Update My Password</button>
-        </form>
-        <p class="text-xs text-muted mt-3">To reset another member's password: Supabase → Authentication → Users → select user → Reset password.</p>
-      </div>`;
-
+      h += '<div class="panel mb-4"><h3 style="font-size:1rem;margin-bottom:0.8rem;">Create Member</h3><div id="create-alert" class="hidden"></div>';
+      h += '<form id="create-form">';
+      h += '<div class="form-group"><label>Username</label><input type="text" id="c-user" class="input" required minlength="3" autocapitalize="none" /></div>';
+      h += '<div class="form-group"><label>Password</label><input type="password" id="c-pass" class="input" required minlength="6" /></div>';
+      h += '<div class="form-group"><label>Rank</label><select id="c-rank" class="select">'+rankOptions(1)+'</select></div>';
+      h += '<div class="form-group"><label>Role</label><select id="c-role" class="select"><option value="member">member</option><option value="moderator">moderator</option><option value="admin">admin</option></select></div>';
+      h += '<div class="form-group"><label>Company</label><select id="c-company" class="select">'+buildCompanyOptions(companies, "", true)+'</select></div>';
+      h += '<button type="submit" class="btn">Create Account</button></form>';
+      h += '<p class="text-xs text-muted mt-3">Enable Signups in Supabase Auth. Creating may sign you out.</p></div>';
+      h += '<div class="panel"><h3 style="font-size:1rem;margin-bottom:0.8rem;">Change your own password</h3><div id="pw-alert" class="hidden"></div>';
+      h += '<form id="pw-form"><div class="form-group"><label>New password</label><input type="password" id="pw-new" class="input" required minlength="6" /></div>';
+      h += '<div class="form-group"><label>Confirm</label><input type="password" id="pw-confirm" class="input" required minlength="6" /></div>';
+      h += '<button type="submit" class="btn">Update My Password</button></form></div>';
       el.innerHTML = h;
 
       el.querySelectorAll("[data-save-user]").forEach(function(btn) {
-        btn.onclick = function() { saveUser(btn.getAttribute("data-save-user")); };
+        btn.onclick = async function() {
+          var id = btn.getAttribute("data-save-user");
+          var username = document.getElementById("user-"+id).value.trim().toLowerCase();
+          var rank = Number(document.getElementById("rank-"+id).value);
+          var role = document.getElementById("role-"+id).value;
+          var company_id = document.getElementById("company-"+id).value || null;
+          if (username.length < 3) { alert("Username too short"); return; }
+          var ur = await adminUpdateUsername(id, username);
+          if (ur.error && !/SERVICE_ROLE|service_role|Add SUPABASE/i.test(ur.error)) { alert(ur.error); return; }
+          if (ur.error) {
+            var ok = await updateProfile(id, { username: username, rank_level: rank, role: role, company_id: company_id });
+            alert(ok ? "Profile saved (login username needs service_role key)." : ur.error);
+          } else {
+            var ok2 = await updateProfile(id, { username: username, rank_level: rank, role: role, company_id: company_id });
+            alert(ok2 ? "Saved: "+username : "Profile save failed");
+          }
+          render("users");
+        };
       });
       el.querySelectorAll("[data-reset-pw]").forEach(function(btn) {
-        btn.onclick = function() { resetUserPassword(btn.getAttribute("data-reset-pw"), btn.getAttribute("data-uname")); };
+        btn.onclick = async function() {
+          var id = btn.getAttribute("data-reset-pw");
+          var uname = btn.getAttribute("data-uname");
+          var pw = prompt("New password for \""+uname+"\" (min 6):");
+          if (pw === null) return;
+          if (pw.length < 6) { alert("Min 6 characters"); return; }
+          var r = await adminSetPassword(id, pw);
+          alert(r.error || ("Password updated for "+uname));
+        };
       });
       el.querySelectorAll("[data-del-user]").forEach(function(btn) {
-        btn.onclick = function() { removeUser(btn.getAttribute("data-del-user"), btn.getAttribute("data-uname")); };
+        btn.onclick = async function() {
+          var id = btn.getAttribute("data-del-user");
+          var uname = btn.getAttribute("data-uname");
+          if (id === session.id) { alert("Cannot delete yourself"); return; }
+          if (!confirm("Delete \""+uname+"\" permanently?")) return;
+          var r = await adminDeleteUser(id);
+          alert(r.error || ("Deleted "+uname));
+          render("users");
+        };
       });
-
-      var createForm = document.getElementById("create-form");
-      if (createForm) {
-        createForm.onsubmit = async function(e) {
-          e.preventDefault();
-          var username = document.getElementById("c-user").value.trim();
-          var password = document.getElementById("c-pass").value;
-          var rank = Number(document.getElementById("c-rank").value);
-          var role = document.getElementById("c-role").value;
-          var alert = document.getElementById("create-alert");
-          var company_id = (document.getElementById('c-company') && document.getElementById('c-company').value) || null;
-          var result = await createMemberAccount(username, password, rank, role, company_id);
-          if (result.error) {
-            alert.textContent = result.error;
-            alert.className = "alert alert-error";
-            alert.classList.remove("hidden");
-            return;
-          }
-          alert.textContent = "Account created for " + username + ". Log in again if signed out.";
-          alert.className = "alert alert-success";
-          alert.classList.remove("hidden");
-          setTimeout(function() { location.reload(); }, 1200);
-        };
-      }
-
-      var pwForm = document.getElementById("pw-form");
-      if (pwForm) {
-        pwForm.onsubmit = async function(e) {
-          e.preventDefault();
-          var a = document.getElementById("pw-alert");
-          var n = document.getElementById("pw-new").value;
-          var c = document.getElementById("pw-confirm").value;
-          if (n.length < 6) { a.textContent = "Password min 6 characters"; a.className = "alert alert-error"; a.classList.remove("hidden"); return; }
-          if (n !== c) { a.textContent = "Passwords do not match"; a.className = "alert alert-error"; a.classList.remove("hidden"); return; }
-          var client = db();
-          var res = await client.auth.updateUser({ password: n });
-          if (res.error) {
-            a.textContent = res.error.message;
-            a.className = "alert alert-error";
-            a.classList.remove("hidden");
-            return;
-          }
-          a.textContent = "Password updated.";
-          a.className = "alert alert-success";
-          a.classList.remove("hidden");
-          pwForm.reset();
-        };
-      }
+      document.getElementById("create-form").onsubmit = async function(e) {
+        e.preventDefault();
+        var result = await createMemberAccount(
+          document.getElementById("c-user").value.trim(),
+          document.getElementById("c-pass").value,
+          Number(document.getElementById("c-rank").value),
+          document.getElementById("c-role").value,
+          document.getElementById("c-company").value || null
+        );
+        var a = document.getElementById("create-alert");
+        if (result.error) { a.textContent = result.error; a.className = "alert alert-error"; }
+        else { a.textContent = "Account created."; a.className = "alert alert-success"; setTimeout(function(){ location.reload(); }, 1000); }
+        a.classList.remove("hidden");
+      };
+      document.getElementById("pw-form").onsubmit = async function(e) {
+        e.preventDefault();
+        var n = document.getElementById("pw-new").value, c = document.getElementById("pw-confirm").value;
+        var a = document.getElementById("pw-alert");
+        if (n.length < 6 || n !== c) { a.textContent = "Passwords must match (min 6)."; a.className = "alert alert-error"; a.classList.remove("hidden"); return; }
+        var res = await db().auth.updateUser({ password: n });
+        a.textContent = res.error ? res.error.message : "Password updated.";
+        a.className = "alert " + (res.error ? "alert-error" : "alert-success");
+        a.classList.remove("hidden");
+      };
     }
 
-    window.saveUser = async function(id) {
-      var userEl = document.getElementById("user-" + id);
-      var rankEl = document.getElementById("rank-" + id);
-      var roleEl = document.getElementById("role-" + id);
-      if (!userEl || !rankEl || !roleEl) { alert("Could not find fields"); return; }
-      var username = userEl.value.trim().toLowerCase();
-      if (username.length < 3) { alert("Username must be at least 3 characters"); return; }
-      var rank = Number(rankEl.value);
-      var role = roleEl.value;
-      var companyEl = document.getElementById("company-" + id);
-      var company_id = companyEl && companyEl.value ? companyEl.value : null;
-      var coEl = document.getElementById("co-" + id);
-      var company_id = coEl && coEl.value ? coEl.value : null;
-
-      // Change login username (auth email) + profile
-      if (typeof adminUpdateUsername === "function") {
-        var ur = await adminUpdateUsername(id, username);
-        if (ur.error) {
-          // Fall back to profile-only if service role missing
-          if (/SERVICE_ROLE|service_role|Add SUPABASE/i.test(ur.error)) {
-            var ok = await updateProfile(id, { username: username, rank_level: rank, role: role, company_id: company_id });
-            if (!ok) { alert(ur.error); return; }
-            alert("Rank/role saved. To change LOGIN username, add SERVICE_ROLE key to config.js.\n\n" + ur.error);
-            render("users");
-            return;
-          }
-          alert(ur.error);
-          return;
-        }
-      }
-
-      var ok2 = await updateProfile(id, { username: username, rank_level: rank, role: role, company_id: company_id });
-      if (!ok2) {
-        alert("Profile rank/role save failed. Check RLS admin update policy.");
-        return;
-      }
-      alert("Saved login username + profile: " + username + " · " + getRankName(rank) + " · " + role);
-      render("users");
-    };
-
-    window.resetUserPassword = async function(id, username) {
-      var pw = prompt("New password for \"" + username + "\" (min 6 characters):");
-      if (pw === null) return;
-      if (pw.length < 6) { alert("Password must be at least 6 characters"); return; }
-      var confirmPw = prompt("Confirm new password:");
-      if (confirmPw === null) return;
-      if (pw !== confirmPw) { alert("Passwords do not match"); return; }
-      var r = await adminSetPassword(id, pw);
-      if (r.error) { alert(r.error); return; }
-      alert("Password updated for " + username);
-    };
-
-    window.removeUser = async function(id, username) {
-      if (id === session.id) { alert("You cannot delete your own account while logged in."); return; }
-      if (!confirm("Delete account \"" + username + "\" permanently? This cannot be undone.")) return;
-      var r = await adminDeleteUser(id);
-      if (r.error) { alert(r.error); return; }
-      alert("Deleted " + username);
-      render("users");
-    };
-
     async function renderReports(el) {
-      const rows = await getReports();
-      const companies = await getCompanies();
-      const profiles = await getProfiles();
-      const admins = profiles.filter(p => p.role === "admin" || p.role === "moderator");
+      var rows = await getReports();
+      // Admin list still only shows reports this account can SELECT (strict rules apply to everyone)
+      var profiles = await getProfiles();
+      var admins = profiles.filter(function(p){ return p.role === "admin" || p.role === "moderator"; });
+      var editId = window.__editReportId || null;
+      var editRow = editId ? rows.find(function(r){ return r.id === editId; }) : null;
 
-      let h = `<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Report</h2>
-        <form id="r-form">
-          <div class="form-group"><label>Title</label><input id="r-title" class="input" required /></div>
-          <div class="form-group"><label>Body</label><textarea id="r-body" class="textarea" required></textarea></div>
-          <div class="form-group"><label>Min Rank</label><select id="r-rank" class="select">${rankOptions(1)}</select></div>
-          <div class="form-group"><label>Company</label><select id="r-company" class="select">${buildCompanyOptions(companies, "", true)}</select></div>
-          <div class="form-group"><label>Tag admins (they can see this even below min rank)</label>
-            <div id="r-tags" style="max-height:160px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:0.5rem;">`;
-      admins.forEach(a => {
-        h += '<label style="display:flex;gap:0.5rem;align-items:center;margin:0.25rem 0;"><input type="checkbox" class="r-tag" value="'+a.id+'" /> '+esc(a.username)+' <span class="text-xs text-muted">('+a.role+')</span></label>';
+      var h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:0.5rem;">'+(editRow?'Edit Report':'Add Report')+'</h2>';
+      h += '<p class="text-xs text-muted mb-3">Visibility (everyone, including admins): tagged people always see it; otherwise must meet <strong>min rank</strong> and be in the report\'s <strong>company</strong> (or unit-wide).</p>';
+      h += '<form id="r-form">';
+      h += '<div class="form-group"><label>Title</label><input id="r-title" class="input" required value="'+(editRow?esc(editRow.title):'')+'" /></div>';
+      h += '<div class="form-group"><label>Body</label><textarea id="r-body" class="textarea" required>'+(editRow?esc(editRow.body||''):'')+'</textarea></div>';
+      h += '<div class="form-group"><label>Min Rank</label><select id="r-rank" class="select">'+rankOptions(editRow?editRow.min_rank_level:1)+'</select></div>';
+      h += '<div class="form-group"><label>Company</label><select id="r-company" class="select">'+buildCompanyOptions(companies, editRow?(editRow.company_id||""):"", true)+'</select></div>';
+      h += '<div class="form-group"><label>Tag people (they can see this even if below rank / wrong company)</label><div style="max-height:160px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:0.5rem;">';
+      var taggedSet = {};
+      (editRow && editRow.tagged_admin_ids || []).forEach(function(id){ taggedSet[id] = true; });
+      profiles.forEach(function(a) {
+        h += '<label style="display:flex;gap:0.5rem;align-items:center;margin:0.25rem 0;"><input type="checkbox" class="r-tag" value="'+a.id+'"'+(taggedSet[a.id]?' checked':'')+' /> '+esc(a.username)+' <span class="text-xs text-muted">('+esc(a.role)+' · R'+a.rank_level+')</span></label>';
       });
-      if (!admins.length) h += '<span class="text-xs text-muted">No admins/moderators found</span>';
-      h += `</div></div>
-          <div class="form-group"><label>Attach images / files</label><input type="file" id="r-files" class="input" multiple accept="image/*,.pdf,.doc,.docx,.txt,.zip" /></div>
-          <label style="display:flex;gap:0.5rem;align-items:center;margin-bottom:1rem;"><input type="checkbox" id="r-class" /> Classified</label>
-          <button class="btn" type="submit">Publish Report</button>
-        </form></div><div class="panel"><h3 style="font-size:1rem;margin-bottom:0.8rem;">Existing</h3>`;
-      rows.forEach(r => {
-        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><div><strong>'+esc(r.title)+'</strong><div class="text-xs text-muted">'+getRankName(r.min_rank_level)+'+ · '+esc(companyName(companies, r.company_id))+(r.attachments&&r.attachments.length?' · 📎 '+r.attachments.length:'')+'</div></div><button class="btn btn-danger btn-sm" onclick="delReport(\''+r.id+'\')">Delete</button></div>';
+      if (!profiles.length) h += '<span class="text-xs text-muted">No members found</span>';
+      h += '</div></div>';
+      h += '<div class="form-group"><label>'+(editRow?'Add more images / files':'Attach images / files')+'</label><input type="file" id="r-files" class="input" multiple accept="image/*,.pdf,.doc,.docx,.txt,.zip" /></div>';
+      if (editRow && editRow.attachments && editRow.attachments.length) {
+        h += '<div class="text-xs text-muted mb-3">Existing attachments: '+editRow.attachments.length+' (kept unless you replace by re-saving new files only — new files are appended)</div>';
+      }
+      h += '<label style="display:flex;gap:0.5rem;align-items:center;margin-bottom:1rem;"><input type="checkbox" id="r-class"'+(editRow&&editRow.is_classified?' checked':'')+' /> Classified</label>';
+      h += '<div class="flex gap-2"><button class="btn" type="submit">'+(editRow?'Save Changes':'Publish Report')+'</button>';
+      if (editRow) h += '<button type="button" class="btn btn-outline" id="r-cancel-edit">Cancel edit</button>';
+      h += '</div></form></div>';
+
+      h += '<div class="panel"><h3 style="font-size:1rem;margin-bottom:0.8rem;">Reports you can access</h3>';
+      h += '<p class="text-xs text-muted mb-3">If a report is hidden here, your rank/company does not match and you are not tagged — even as admin.</p>';
+      if (!rows.length) h += '<p class="text-muted text-sm">No reports visible to this account.</p>';
+      rows.forEach(function(r) {
+        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between" style="flex-wrap:wrap;gap:0.5rem;"><div><strong>'+esc(r.title)+'</strong>';
+        h += '<div class="text-xs text-muted">'+getRankName(r.min_rank_level)+'+ · '+esc(companyName(companies, r.company_id));
+        if (r.attachments&&r.attachments.length) h += ' · 📎 '+r.attachments.length;
+        h += '</div></div><div class="flex gap-1">';
+        h += '<button class="btn btn-sm btn-outline" data-edit-r="'+r.id+'">Edit</button>';
+        h += '<button class="btn btn-danger btn-sm" data-del-r="'+r.id+'">Delete</button></div></div>';
       });
       h += '</div>';
       el.innerHTML = h;
+
+      var cancel = document.getElementById("r-cancel-edit");
+      if (cancel) cancel.onclick = function(){ window.__editReportId = null; render("reports"); };
+
       document.getElementById("r-form").onsubmit = async function(e) {
         e.preventDefault();
         var btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true;
-        btn.textContent = "Uploading…";
-        var attachments = [];
+        btn.disabled = true; btn.textContent = "Saving…";
+        var attachments = (editRow && editRow.attachments) ? editRow.attachments.slice() : [];
         var fileInput = document.getElementById("r-files");
         if (fileInput.files && fileInput.files.length) {
           var up = await uploadFiles(fileInput.files, "reports");
           if (up.error) {
-            alert("Upload failed: " + up.error + "\n\nCreate Storage bucket 'archive-files' in Supabase if missing.");
-            btn.disabled = false;
-            btn.textContent = "Publish Report";
+            alert("Upload failed: "+up.error+"\\n\\nCreate Storage bucket archive-files in Supabase.");
+            btn.disabled = false; btn.textContent = editRow ? "Save Changes" : "Publish Report";
             return;
           }
-          attachments = up.files || [];
+          attachments = attachments.concat(up.files || []);
         }
         var tagged = [];
         document.querySelectorAll(".r-tag:checked").forEach(function(cb){ tagged.push(cb.value); });
-        var companyVal = document.getElementById("r-company").value;
-        await saveReport({
+        var payload = {
           title: document.getElementById("r-title").value.trim(),
           body: document.getElementById("r-body").value,
           min_rank_level: Number(document.getElementById("r-rank").value),
           is_classified: document.getElementById("r-class").checked,
           status: "published",
-          author_id: session.id,
-          author_name: session.username,
-          company_id: companyVal || null,
+          company_id: document.getElementById("r-company").value || null,
           tagged_admin_ids: tagged,
           attachments: attachments
-        });
+        };
+        if (editRow) {
+          payload.id = editRow.id;
+        } else {
+          payload.author_id = session.id;
+          payload.author_name = session.username;
+        }
+        var ok = await saveReport(payload);
+        if (!ok) alert("Save failed (check staff write policies).");
+        window.__editReportId = null;
         render("reports");
       };
+      el.querySelectorAll("[data-edit-r]").forEach(function(btn) {
+        btn.onclick = function(){ window.__editReportId = btn.getAttribute("data-edit-r"); render("reports"); };
+      });
+      el.querySelectorAll("[data-del-r]").forEach(function(btn) {
+        btn.onclick = async function() {
+          if (!confirm("Delete report?")) return;
+          await deleteReport(btn.getAttribute("data-del-r"));
+          window.__editReportId = null;
+          render("reports");
+        };
+      });
     }
-    window.delReport = async function(id) {
-      if (!confirm("Delete report?")) return;
-      await deleteReport(id);
-      render("reports");
-    };
 
     async function renderMerits(el) {
-      const rows = await getMerits();
-      let h = `<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Merit</h2>
-        <form id="m-form">
-          <div class="form-group"><label>Title</label><input id="m-title" class="input" required /></div>
-          <div class="form-group"><label>Recipient</label><input id="m-recip" class="input" /></div>
-          <div class="form-group"><label>Description</label><textarea id="m-desc" class="textarea"></textarea></div>
-          <button class="btn" type="submit">Add</button>
-        </form></div><div class="panel">`;
-      rows.forEach(m => {
-        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><div><strong>'+esc(m.title)+'</strong><div class="text-xs text-muted">'+esc(m.recipient_name||"")+'</div></div><button class="btn btn-danger btn-sm" onclick="delMerit(\''+m.id+'\')">Delete</button></div>';
+      var rows = await getMerits();
+      var h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Merit</h2><form id="m-form">';
+      h += '<div class="form-group"><label>Title</label><input id="m-title" class="input" required /></div>';
+      h += '<div class="form-group"><label>Recipient</label><input id="m-recip" class="input" /></div>';
+      h += '<div class="form-group"><label>Description</label><textarea id="m-desc" class="textarea"></textarea></div>';
+      h += '<button class="btn" type="submit">Add</button></form></div><div class="panel">';
+      rows.forEach(function(m) {
+        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><div><strong>'+esc(m.title)+'</strong><div class="text-xs text-muted">'+esc(m.recipient_name||"")+'</div></div><button class="btn btn-danger btn-sm" data-del-m="'+m.id+'">Delete</button></div>';
       });
       h += '</div>';
       el.innerHTML = h;
       document.getElementById("m-form").onsubmit = async function(e) {
         e.preventDefault();
-        await saveMerit({
-          title: document.getElementById("m-title").value.trim(),
-          recipient_name: document.getElementById("m-recip").value.trim(),
-          description: document.getElementById("m-desc").value,
-          awarded_by: session.username
-        });
+        await saveMerit({ title: document.getElementById("m-title").value.trim(), recipient_name: document.getElementById("m-recip").value.trim(), description: document.getElementById("m-desc").value, awarded_by: session.username });
         render("merits");
       };
+      el.querySelectorAll("[data-del-m]").forEach(function(btn) {
+        btn.onclick = async function() { if (!confirm("Delete?")) return; await deleteMerit(btn.getAttribute("data-del-m")); render("merits"); };
+      });
     }
-    window.delMerit = async function(id) { if(confirm("Delete?")){ await deleteMerit(id); render("merits"); } };
 
     async function renderTraining(el) {
-      const rows = await getTraining();
-      let h = `<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Training</h2>
-        <form id="t-form">
-          <div class="form-group"><label>Title</label><input id="t-title" class="input" required /></div>
-          <div class="form-group"><label>Content</label><textarea id="t-body" class="textarea"></textarea></div>
-          <div class="form-group"><label>Category</label><input id="t-cat" class="input" /></div>
-          <div class="form-group"><label>Min Rank</label><select id="t-rank" class="select">${rankOptions(1)}</select></div>
-          <button class="btn" type="submit">Add</button>
-        </form></div><div class="panel">`;
-      rows.forEach(r => {
-        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><strong>'+esc(r.title)+'</strong><button class="btn btn-danger btn-sm" onclick="delTrain(\''+r.id+'\')">Delete</button></div>';
+      var rows = await getTraining();
+      var h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Training</h2><form id="t-form">';
+      h += '<div class="form-group"><label>Title</label><input id="t-title" class="input" required /></div>';
+      h += '<div class="form-group"><label>Content</label><textarea id="t-body" class="textarea"></textarea></div>';
+      h += '<div class="form-group"><label>Category</label><input id="t-cat" class="input" /></div>';
+      h += '<div class="form-group"><label>Min Rank</label><select id="t-rank" class="select">'+rankOptions(1)+'</select></div>';
+      h += '<button class="btn" type="submit">Add</button></form></div><div class="panel">';
+      rows.forEach(function(r) {
+        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><strong>'+esc(r.title)+'</strong><button class="btn btn-danger btn-sm" data-del-t="'+r.id+'">Delete</button></div>';
       });
       h += '</div>';
       el.innerHTML = h;
       document.getElementById("t-form").onsubmit = async function(e) {
         e.preventDefault();
-        await saveTrainingItem({
-          title: document.getElementById("t-title").value.trim(),
-          content: document.getElementById("t-body").value,
-          category: document.getElementById("t-cat").value.trim(),
-          min_rank_level: Number(document.getElementById("t-rank").value)
-        });
+        await saveTrainingItem({ title: document.getElementById("t-title").value.trim(), content: document.getElementById("t-body").value, category: document.getElementById("t-cat").value.trim(), min_rank_level: Number(document.getElementById("t-rank").value) });
         render("training");
       };
+      el.querySelectorAll("[data-del-t]").forEach(function(btn) {
+        btn.onclick = async function() { if (!confirm("Delete?")) return; await deleteTraining(btn.getAttribute("data-del-t")); render("training"); };
+      });
     }
-    window.delTrain = async function(id){ if(confirm("Delete?")){ await deleteTraining(id); render("training"); }};
 
     async function renderTutorials(el) {
-      const rows = await getTutorials();
-      let h = `<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Tutorial</h2>
-        <form id="v-form">
-          <div class="form-group"><label>Title</label><input id="v-title" class="input" required /></div>
-          <div class="form-group"><label>URL</label><input id="v-url" class="input" required /></div>
-          <div class="form-group"><label>Min Rank</label><select id="v-rank" class="select">${rankOptions(1)}</select></div>
-          <button class="btn" type="submit">Add</button>
-        </form></div><div class="panel">`;
-      rows.forEach(r => {
-        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><strong>'+esc(r.title)+'</strong><button class="btn btn-danger btn-sm" onclick="delTut(\''+r.id+'\')">Delete</button></div>';
+      var rows = await getTutorials();
+      var h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Tutorial</h2><form id="v-form">';
+      h += '<div class="form-group"><label>Title</label><input id="v-title" class="input" required /></div>';
+      h += '<div class="form-group"><label>URL</label><input id="v-url" class="input" required /></div>';
+      h += '<div class="form-group"><label>Min Rank</label><select id="v-rank" class="select">'+rankOptions(1)+'</select></div>';
+      h += '<button class="btn" type="submit">Add</button></form></div><div class="panel">';
+      rows.forEach(function(r) {
+        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><strong>'+esc(r.title)+'</strong><button class="btn btn-danger btn-sm" data-del-u="'+r.id+'">Delete</button></div>';
       });
       h += '</div>';
       el.innerHTML = h;
       document.getElementById("v-form").onsubmit = async function(e) {
         e.preventDefault();
-        await saveTutorial({
-          title: document.getElementById("v-title").value.trim(),
-          url: document.getElementById("v-url").value.trim(),
-          min_rank_level: Number(document.getElementById("v-rank").value)
-        });
+        await saveTutorial({ title: document.getElementById("v-title").value.trim(), url: document.getElementById("v-url").value.trim(), min_rank_level: Number(document.getElementById("v-rank").value) });
         render("tutorials");
       };
+      el.querySelectorAll("[data-del-u]").forEach(function(btn) {
+        btn.onclick = async function() { if (!confirm("Delete?")) return; await deleteTutorial(btn.getAttribute("data-del-u")); render("tutorials"); };
+      });
     }
-    window.delTut = async function(id){ if(confirm("Delete?")){ await deleteTutorial(id); render("tutorials"); }};
 
     async function renderLinks(el) {
-      const rows = await getLinks();
-      let h = `<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Link</h2>
-        <form id="l-form">
-          <div class="form-group"><label>Title</label><input id="l-title" class="input" required /></div>
-          <div class="form-group"><label>URL</label><input id="l-url" class="input" required /></div>
-          <div class="form-group"><label>Platform</label><input id="l-plat" class="input" placeholder="Web / Desktop" /></div>
-          <button class="btn" type="submit">Add</button>
-        </form></div><div class="panel">`;
-      rows.forEach(r => {
-        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><strong>'+esc(r.title)+'</strong><button class="btn btn-danger btn-sm" onclick="delLink(\''+r.id+'\')">Delete</button></div>';
+      var rows = await getLinks();
+      var h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Link</h2><form id="l-form">';
+      h += '<div class="form-group"><label>Title</label><input id="l-title" class="input" required /></div>';
+      h += '<div class="form-group"><label>URL</label><input id="l-url" class="input" required /></div>';
+      h += '<div class="form-group"><label>Platform</label><input id="l-plat" class="input" placeholder="Web / Desktop" /></div>';
+      h += '<button class="btn" type="submit">Add</button></form></div><div class="panel">';
+      rows.forEach(function(r) {
+        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><strong>'+esc(r.title)+'</strong><button class="btn btn-danger btn-sm" data-del-l="'+r.id+'">Delete</button></div>';
       });
       h += '</div>';
       el.innerHTML = h;
       document.getElementById("l-form").onsubmit = async function(e) {
         e.preventDefault();
-        await saveLink({
-          title: document.getElementById("l-title").value.trim(),
-          url: document.getElementById("l-url").value.trim(),
-          platform: document.getElementById("l-plat").value.trim()
-        });
+        await saveLink({ title: document.getElementById("l-title").value.trim(), url: document.getElementById("l-url").value.trim(), platform: document.getElementById("l-plat").value.trim() });
         render("links");
       };
+      el.querySelectorAll("[data-del-l]").forEach(function(btn) {
+        btn.onclick = async function() { if (!confirm("Delete?")) return; await deleteLink(btn.getAttribute("data-del-l")); render("links"); };
+      });
     }
-    window.delLink = async function(id){ if(confirm("Delete?")){ await deleteLink(id); render("links"); }};
 
-    
     async function renderCompanies(el) {
-      const companies = await getCompanies();
-      let h = `<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Company</h2>
-        <form id="co-form" class="flex gap-2" style="flex-wrap:wrap;align-items:end;">
-          <div class="form-group" style="margin:0;"><label>Name</label><input id="co-name" class="input" required placeholder="Delta Company" /></div>
-          <div class="form-group" style="margin:0;"><label>Code</label><input id="co-code" class="input" placeholder="D" style="width:5rem;" /></div>
-          <button class="btn" type="submit">Add</button>
-        </form></div><div class="panel"><h3 style="font-size:1rem;margin-bottom:0.8rem;">Companies</h3>`;
-      if (!companies.length) h += '<p class="text-muted text-sm">No companies yet. Run the SQL migration to seed Demon, Nightmare, Cerberus, Hellfire.</p>';
-      companies.forEach(c => {
-        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><div><strong>'+esc(c.name)+'</strong> <span class="text-xs text-muted">'+(c.code||"")+'</span></div>';
-        h += '<button class="btn btn-danger btn-sm" data-del-co="'+c.id+'">Delete</button></div>';
+      var rows = await getCompanies();
+      var h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Company</h2><form id="co-form">';
+      h += '<div class="form-group"><label>Name</label><input id="co-name" class="input" required placeholder="Demon" /></div>';
+      h += '<div class="form-group"><label>Code</label><input id="co-code" class="input" placeholder="DMN" /></div>';
+      h += '<button class="btn" type="submit">Add</button></form></div><div class="panel"><h3 style="font-size:1rem;margin-bottom:0.8rem;">Companies</h3>';
+      if (!rows.length) h += '<p class="text-muted text-sm">No companies yet. Run SQL migration to seed Demon, Nightmare, Cerberus, Hellfire.</p>';
+      rows.forEach(function(c) {
+        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><div><strong>'+esc(c.name)+'</strong> <span class="text-xs text-muted">'+esc(c.code||"")+'</span></div><button class="btn btn-danger btn-sm" data-del-c="'+c.id+'">Delete</button></div>';
       });
       h += '</div>';
       el.innerHTML = h;
       document.getElementById("co-form").onsubmit = async function(e) {
         e.preventDefault();
-        await saveCompany({
-          name: document.getElementById("co-name").value.trim(),
-          code: document.getElementById("co-code").value.trim() || null
-        });
+        await saveCompany({ name: document.getElementById("co-name").value.trim(), code: document.getElementById("co-code").value.trim() || null });
         render("companies");
       };
-      el.querySelectorAll("[data-del-co]").forEach(function(btn) {
-        btn.onclick = async function() {
-          if (!confirm("Delete this company?")) return;
-          await deleteCompany(btn.getAttribute("data-del-co"));
-          render("companies");
-        };
+      el.querySelectorAll("[data-del-c]").forEach(function(btn) {
+        btn.onclick = async function() { if (!confirm("Delete this company?")) return; await deleteCompany(btn.getAttribute("data-del-c")); render("companies"); };
       });
     }
 
-(async function() {
+    (async function() {
       initSupabase();
       session = await requireAdmin();
       if (!session) return;
