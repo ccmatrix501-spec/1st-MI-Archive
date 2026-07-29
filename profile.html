@@ -1,40 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Profile – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=s7" />
+  <link rel="stylesheet" href="css/style.css?v=s12" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=s7"></script>
-  <script src="js/data.js?v=s7"></script>
-  <script src="js/ranks-icons.js?v=s7"></script>
+  <script src="js/config.js?v=s12"></script>
+  <script src="js/data.js?v=s12"></script>
+  <script src="js/ranks-icons.js?v=s12"></script>
 </head>
 <body>
   <div id="app"><p class="text-muted text-center" style="padding:3rem;">Loading…</p></div>
   <script>
     (async function() {
       initSupabase();
-      const session = await requireAdmin();
+      var session = await requireAuth();
       if (!session) return;
       await applyBackground(); showVersion();
-      const settings = await getSettings();
-      let html = '<nav class="navbar"><div class="nav-inner"><div class="nav-brand"><span>◆</span> TACTICAL ARCHIVE</div><div class="nav-links"><a href="dashboard.html">Dashboard</a><a href="admin.html" style="color:#fbbf24">Admin</a><a href="profile.html" class="active" style="color:#fbbf24">Profile</a></div><div class="nav-user"><div><div style="font-weight:600">'+esc(session.username)+'</div></div><button class="btn-logout" onclick="logout()">Logout</button></div></div></nav>';
+      var companies = await getCompanies();
+      var settings = await getSettings();
+      var isAdmin = session.role === "admin";
+
+      var html = '<nav class="navbar"><div class="nav-inner"><div class="nav-brand"><span>◆</span> TACTICAL ARCHIVE</div><div class="nav-links">';
+      html += '<a href="dashboard.html">Dashboard</a><a href="reports.html">Reports</a><a href="voting.html">Voting</a>';
+      if (isAdmin) html += '<a href="admin.html" style="color:#fbbf24">Admin</a>';
+      html += '<a href="profile.html" class="active" style="color:#fbbf24">Profile</a>';
+      html += '</div><div class="nav-user"><div><div style="font-weight:600">'+esc(session.username)+'</div></div><button class="btn-logout" onclick="logout()">Logout</button></div></div></nav>';
+
       html += '<div class="container"><h1 style="font-size:1.45rem;margin-bottom:1rem;">Profile & Settings</h1>';
-      html += '<div class="panel mb-4"><h2 style="font-size:1.05rem;margin-bottom:0.8rem;">Account</h2><p><strong>'+esc(session.username)+'</strong></p><p class="text-sm text-muted">'+formatRank(session.rank_level)+' · '+session.role+'</p></div>';
-      html += '<div class="panel"><h2 style="font-size:1.05rem;margin-bottom:0.8rem;">Background Image</h2><form id="bg-form"><div class="form-group"><label>Image URL</label><input id="bg-url" class="input" value="'+esc(settings.background_image||"")+'" /></div><button class="btn" type="submit">Save</button> <button type="button" class="btn btn-outline" id="use-logo">Use Unit Logo</button></form><div id="bg-alert" class="hidden mt-4"></div></div></div>';
+      html += '<div class="panel mb-4"><h2 style="font-size:1.05rem;margin-bottom:0.8rem;">Account</h2>';
+      html += '<p><strong>'+esc(session.username)+'</strong></p>';
+      html += '<p class="text-sm text-muted">'+formatRank(session.rank_level)+' · '+esc(session.role)+' · '+esc(companyName(companies, session.company_id))+'</p></div>';
+
+      html += '<div class="panel mb-4"><h2 style="font-size:1.05rem;margin-bottom:0.8rem;">My Company</h2>';
+      html += '<p class="text-sm text-muted mb-3">Select your company. Company-only reports and votes only show for members of that company (plus unit-wide items).</p>';
+      html += '<div id="co-alert" class="hidden"></div>';
+      html += '<form id="co-form"><div class="form-group"><label>Company</label><select id="my-company" class="select">';
+      html += '<option value="">— Not assigned —</option>';
+      companies.forEach(function(c) {
+        html += '<option value="'+c.id+'"'+(session.company_id===c.id?' selected':'')+'>'+esc(c.name)+'</option>';
+      });
+      html += '</select></div><button class="btn" type="submit">Save Company</button></form></div>';
+
+      if (isAdmin) {
+        html += '<div class="panel"><h2 style="font-size:1.05rem;margin-bottom:0.8rem;">Background Image</h2>';
+        html += '<form id="bg-form"><div class="form-group"><label>Image URL</label><input id="bg-url" class="input" value="'+esc(settings.background_image||"")+'" /></div>';
+        html += '<button class="btn" type="submit">Save</button> <button type="button" class="btn btn-outline" id="use-logo">Use Unit Logo</button></form>';
+        html += '<div id="bg-alert" class="hidden mt-4"></div></div>';
+      }
+      html += '</div>';
       document.getElementById("app").innerHTML = html;
-      document.getElementById("bg-form").onsubmit = async function(e) {
+
+      document.getElementById("co-form").onsubmit = async function(e) {
         e.preventDefault();
-        await saveSettings({ background_image: document.getElementById("bg-url").value.trim() });
-        await applyBackground();
-        const a = document.getElementById("bg-alert");
-        a.textContent = "Saved."; a.className = "alert alert-success"; a.classList.remove("hidden");
+        var val = document.getElementById("my-company").value || null;
+        var ok = await updateProfile(session.id, { company_id: val });
+        var a = document.getElementById("co-alert");
+        if (!ok) {
+          a.textContent = "Could not save. Admin may need to set company for you, or run the profile update policy SQL.";
+          a.className = "alert alert-error"; a.classList.remove("hidden");
+          return;
+        }
+        a.textContent = "Company saved."; a.className = "alert alert-success"; a.classList.remove("hidden");
+        setTimeout(function(){ location.reload(); }, 800);
       };
-      document.getElementById("use-logo").onclick = async function() {
-        document.getElementById("bg-url").value = "img/unit-logo.jpg";
-        await saveSettings({ background_image: "img/unit-logo.jpg" });
-        await applyBackground();
-      };
+
+      var bg = document.getElementById("bg-form");
+      if (bg) {
+        bg.onsubmit = async function(e) {
+          e.preventDefault();
+          await saveSettings({ background_image: document.getElementById("bg-url").value.trim() });
+          await applyBackground();
+          var a = document.getElementById("bg-alert");
+          a.textContent = "Saved."; a.className = "alert alert-success"; a.classList.remove("hidden");
+        };
+        document.getElementById("use-logo").onclick = async function() {
+          document.getElementById("bg-url").value = "img/unit-logo.jpg";
+          await saveSettings({ background_image: "img/unit-logo.jpg" });
+          await applyBackground();
+        };
+      }
     })();
   </script>
 </body>
