@@ -4,45 +4,70 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Report – Tactical Archive</title>
-  <link rel="stylesheet" href="css/style.css?v=s7" />
+  <link rel="stylesheet" href="css/style.css?v=s12" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=s7"></script>
-  <script src="js/data.js?v=s7"></script>
-  <script src="js/ranks-icons.js?v=s7"></script>
+  <script src="js/config.js?v=s12"></script>
+  <script src="js/data.js?v=s12"></script>
+  <script src="js/ranks-icons.js?v=s12"></script>
 </head>
 <body>
   <div id="app"><p class="text-muted text-center" style="padding:3rem;">Loading…</p></div>
   <script>
-    let session = null;
+    var session = null;
     (async function() {
       initSupabase();
       session = await requireAuth();
       if (!session) return;
       await applyBackground(); showVersion();
-      const id = new URLSearchParams(location.search).get("id");
+      var id = new URLSearchParams(location.search).get("id");
       if (!id) { location.href = "reports.html"; return; }
-      const { data: report, error } = await db().from("reports").select("*").eq("id", id).maybeSingle();
-      if (error || !report) { location.href = "reports.html"; return; }
-      if (!canAccess(session.rank_level, report.min_rank_level)) { location.href = "reports.html"; return; }
-      const comments = await getComments(id);
-      let html = '<div class="container" style="padding-top:1.5rem;"><p class="mb-4"><a href="reports.html" class="text-sm" style="color:#86efac;">← Back to reports</a></p>';
+      var companies = await getCompanies();
+      var res = await db().from("reports").select("*").eq("id", id).maybeSingle();
+      if (res.error || !res.data) { location.href = "reports.html"; return; }
+      var report = res.data;
+      // client-side gate (RLS should already filter)
+      if (!canSeeReport(report, session)) { location.href = "reports.html"; return; }
+      var tagged = report.tagged_admin_ids || [];
+      var rankOk = canAccess(session.rank_level, report.min_rank_level);
+      var tagOk = tagged.indexOf(session.id) >= 0;
+      if (!rankOk && !tagOk) { location.href = "reports.html"; return; }
+
+      var comments = await getComments(id);
+      var html = '<div class="container" style="padding-top:1.5rem;"><p class="mb-4"><a href="reports.html" class="text-sm" style="color:#86efac;">← Back to reports</a></p>';
       html += '<div class="panel mb-4"><h1 style="font-size:1.35rem;margin-bottom:0.5rem;">'+esc(report.title)+'</h1>';
-      html += '<div class="text-xs text-muted mb-4">'+formatRank(report.min_rank_level,14)+'+ · '+(report.is_classified?"CLASSIFIED · ":"")+esc(report.author_name||"")+' · '+new Date(report.created_at).toLocaleString()+'</div>';
-      html += '<div style="white-space:pre-wrap;line-height:1.6;">'+esc(report.body||"")+'</div></div>';
+      html += '<div class="text-xs text-muted mb-4">'+formatRank(report.min_rank_level,14)+'+ · '+esc(companyName(companies, report.company_id));
+      html += (report.is_classified?" · CLASSIFIED":"")+' · '+esc(report.author_name||"")+' · '+new Date(report.created_at).toLocaleString()+'</div>';
+      html += '<div style="white-space:pre-wrap;line-height:1.6;">'+esc(report.body||"")+'</div>';
+
+      var atts = report.attachments || [];
+      if (atts.length) {
+        html += '<div style="margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1rem;"><h3 style="font-size:1rem;margin-bottom:0.6rem;">Attachments</h3>';
+        atts.forEach(function(a) {
+          var isImg = (a.mime||"").indexOf("image/") === 0 || /\.(png|jpe?g|gif|webp)$/i.test(a.name||"");
+          if (isImg && a.url) {
+            html += '<div style="margin-bottom:0.75rem;"><img src="'+esc(a.url)+'" alt="'+esc(a.name||"")+'" style="max-width:100%;border-radius:8px;border:1px solid var(--border);" /><div class="text-xs text-muted">'+esc(a.name||"")+'</div></div>';
+          } else {
+            html += '<div style="margin-bottom:0.4rem;"><a href="'+esc(a.url)+'" target="_blank" rel="noopener" style="color:#86efac;">📎 '+esc(a.name||"Download")+'</a></div>';
+          }
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+
       html += '<div class="panel"><h2 style="font-size:1.05rem;margin-bottom:1rem;">Discussion</h2>';
       if (!comments.length) html += '<p class="text-muted text-sm mb-4">No comments yet.</p>';
-      comments.forEach(c => {
+      comments.forEach(function(c) {
         html += '<div style="padding:0.75rem 0;border-bottom:1px solid var(--border);"><strong>'+esc(c.username)+'</strong> <span class="text-xs text-muted">'+new Date(c.created_at).toLocaleString()+'</span><div class="text-sm mt-1">'+esc(c.body)+'</div></div>';
       });
       html += '<form id="cform" class="mt-4"><div class="form-group"><textarea id="cbody" class="textarea" required placeholder="Add a comment..."></textarea></div><button class="btn" type="submit">Post Comment</button></form></div></div>';
       document.getElementById("app").innerHTML = html;
-      document.getElementById("cform").addEventListener("submit", async function(e) {
+      document.getElementById("cform").onsubmit = async function(e) {
         e.preventDefault();
-        const body = document.getElementById("cbody").value.trim();
+        var body = document.getElementById("cbody").value.trim();
         if (!body) return;
-        await addComment({ report_id: id, user_id: session.id, username: session.username, body });
+        await addComment({ report_id: id, user_id: session.id, username: session.username, body: body });
         location.reload();
-      });
+      };
     })();
   </script>
 </body>
