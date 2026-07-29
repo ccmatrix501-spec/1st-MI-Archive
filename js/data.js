@@ -96,7 +96,8 @@
       email: _session.user && _session.user.email,
       username: _profile.username,
       role: _profile.role,
-      rank_level: _profile.rank_level
+      rank_level: _profile.rank_level,
+      company_id: _profile.company_id || null
     };
   }
 
@@ -325,9 +326,10 @@
     } catch (e) {}
   }
 
-  async function createMemberAccount(username, password, rankLevel, role) {
+  async function createMemberAccount(username, password, rankLevel, role, companyId) {
     role = role || "member";
     rankLevel = Number(rankLevel) || 1;
+    companyId = companyId || null;
     username = String(username || "").trim();
     if (username.length < 3) return { error: "Username too short" };
     if (!password || password.length < 6) return { error: "Password must be at least 6 characters" };
@@ -350,12 +352,116 @@
         id: res.data.user.id,
         username: username,
         role: role,
-        rank_level: rankLevel
+        rank_level: rankLevel,
+        company_id: companyId
       });
     }
     return { user: res.data && res.data.user };
   }
 
+
+
+  async function getCompanies() {
+    var r = await db().from("companies").select("*").order("name");
+    return r.data || [];
+  }
+  async function saveCompany(row) {
+    if (row.id) return !(await db().from("companies").update(row).eq("id", row.id)).error;
+    return !(await db().from("companies").insert(row)).error;
+  }
+  async function deleteCompany(id) {
+    return !(await db().from("companies").delete().eq("id", id)).error;
+  }
+  function companyOptions(selected, includeAll) {
+    // filled async by callers usually; helper for static empty
+    return "";
+  }
+  function buildCompanyOptions(companies, selected, includeUnitWide) {
+    var h = "";
+    if (includeUnitWide) {
+      h += '<option value=""' + (!selected ? " selected" : "") + ">Unit-wide (all companies)</option>";
+    }
+    (companies || []).forEach(function (c) {
+      h += '<option value="' + c.id + '"' + (selected === c.id ? " selected" : "") + ">" +
+        esc(c.name) + (c.code ? " (" + esc(c.code) + ")" : "") + "</option>";
+    });
+    return h;
+  }
+  function companyName(companies, id) {
+    if (!id) return "Unit-wide";
+    for (var i = 0; i < (companies || []).length; i++) {
+      if (companies[i].id === id) return companies[i].name;
+    }
+    return "—";
+  }
+
+  /** Upload file to Storage bucket archive-files. Returns { path, url, name, mime, size } */
+  async function uploadFile(file, folder) {
+    folder = folder || "uploads";
+    var client = db();
+    if (!client) return { error: "Not connected" };
+    if (!file) return { error: "No file" };
+    var safe = String(file.name || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
+    var path = folder + "/" + Date.now() + "_" + safe;
+    var up = await client.storage.from("archive-files").upload(path, file, {
+      cacheControl: "3600",
+      upsert: false
+    });
+    if (up.error) return { error: up.error.message };
+    var pub = client.storage.from("archive-files").getPublicUrl(path);
+    var url = pub.data && pub.data.publicUrl;
+    // also try signed if public fails
+    if (!url) {
+      var signed = await client.storage.from("archive-files").createSignedUrl(path, 60 * 60 * 24 * 365);
+      url = signed.data && signed.data.signedUrl;
+    }
+    return {
+      path: path,
+      url: url,
+      name: file.name,
+      mime: file.type,
+      size: file.size
+    };
+  }
+
+  async function uploadFiles(fileList, folder) {
+    var out = [];
+    var files = Array.from(fileList || []);
+    for (var i = 0; i < files.length; i++) {
+      var r = await uploadFile(files[i], folder);
+      if (r.error) return { error: r.error, partial: out };
+      out.push(r);
+    }
+    return { files: out };
+  }
+
+
+  function canSeeReport(report, user) {
+    if (!report || !user) return false;
+    if (user.role === "admin") return true;
+    // company scope: unit-wide (null) visible to all; else must match
+    if (report.company_id && user.company_id && report.company_id !== user.company_id) {
+      // moderators can see all companies
+      if (user.role !== "moderator") return false;
+    }
+    if (report.company_id && !user.company_id && user.role !== "moderator") return false;
+    // rank gate OR tagged admin/mod
+    var rankOk = Number(user.rank_level) >= Number(report.min_rank_level || 1);
+    var tags = report.tagged_admin_ids || [];
+    var tagged = tags.indexOf(user.id) >= 0;
+    if (rankOk || tagged) return true;
+    return false;
+  }
+
+  function canSeePoll(poll, user) {
+    if (!poll || !user) return false;
+    if (user.role === "admin" || user.role === "moderator") return true;
+    if (!canAccess(user.rank_level, poll.min_rank_level || 1)) return false;
+    if (poll.company_id) {
+      if (!user.company_id || user.company_id !== poll.company_id) return false;
+    }
+    return true;
+  }
 
   function getAdminClient() {
     var cfg = global.TA_CONFIG || {};
@@ -454,10 +560,20 @@
   global.applyBackground = applyBackground;
   global.showVersion = showVersion;
   global.createMemberAccount = createMemberAccount;
+  global.getCompanies = getCompanies;
+  global.saveCompany = saveCompany;
+  global.deleteCompany = deleteCompany;
+  global.buildCompanyOptions = buildCompanyOptions;
+  global.companyName = companyName;
+  global.uploadFile = uploadFile;
+  global.uploadFiles = uploadFiles;
+
   global.getAdminClient = getAdminClient;
   global.adminUpdateUsername = adminUpdateUsername;
   global.adminSetPassword = adminSetPassword;
   global.adminDeleteUser = adminDeleteUser;
+  global.canSeeReport = canSeeReport;
+  global.canSeePoll = canSeePoll;
 
   initSupabase();
 })(typeof window !== "undefined" ? window : this);
