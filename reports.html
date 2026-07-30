@@ -34,8 +34,8 @@
       var companies = await getCompanies();
       var reports = (await getReports()).filter(function(r){ return canSeeReport(r, session); });
       var html = buildNav(session, companies, "reports.html");
-      html += '<div class="container"><div class="mb-6"><h1 style="font-size:1.45rem;">Reports</h1>';
-      html += '<p class="text-muted text-sm">Your rank: '+formatRank(session.rank_level,18)+' · must match rank + company, or be tagged — applies to everyone including admins</p></div>';
+      html += '<div class="container"><div class="mb-6"><h1 style="font-size:1.45rem;">Report files</h1>';
+      html += '<p class="text-muted text-sm">Your rank: '+formatRank(session.rank_level,18)+' · Uploaded files · must match rank + company, or be tagged</p></div>';
       if (!reports.length) html += '<div class="panel text-center" style="padding:3rem;"><p class="text-muted">No reports available for your rank/company.</p></div>';
       else reports.forEach(function(r) {
         html += '<a href="report.html?id='+encodeURIComponent(r.id)+'" class="card mb-4" style="display:block;text-decoration:none;color:inherit;">';

@@ -148,45 +148,42 @@
 
     async function renderReports(el) {
       var rows = await getReports();
-      // Admin list still only shows reports this account can SELECT (strict rules apply to everyone)
       var profiles = await getProfiles();
-      var admins = profiles.filter(function(p){ return p.role === "admin" || p.role === "moderator"; });
       var editId = window.__editReportId || null;
       var editRow = editId ? rows.find(function(r){ return r.id === editId; }) : null;
 
-      var h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:0.5rem;">'+(editRow?'Edit Report':'Add Report')+'</h2>';
-      h += '<p class="text-xs text-muted mb-3">Visibility (everyone, including admins): tagged people always see it; otherwise must meet <strong>min rank</strong> and be in the report\'s <strong>company</strong> (or unit-wide).</p>';
+      var h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:0.5rem;">'+(editRow?'Edit report files':'Upload report files')+'</h2>';
+      h += '<p class="text-xs text-muted mb-3">Reports are <strong>files</strong> (PDF, images, docs, zip). Optional title/notes only. Visibility: tagged people, or min rank + company (unit-wide OK). Applies to everyone including admins.</p>';
       h += '<form id="r-form">';
-      h += '<div class="form-group"><label>Title</label><input id="r-title" class="input" required value="'+(editRow?esc(editRow.title):'')+'" /></div>';
-      h += '<div class="form-group"><label>Body</label><textarea id="r-body" class="textarea" required>'+(editRow?esc(editRow.body||''):'')+'</textarea></div>';
+      h += '<div class="form-group"><label>Report files '+(editRow?'(optional — leave empty to keep existing)':'')+'</label>';
+      h += '<input type="file" id="r-files" class="input" multiple '+(editRow?'':'required ')+'accept="image/*,.pdf,.doc,.docx,.txt,.zip,.csv,.xlsx,.json" /></div>';
+      if (editRow && editRow.attachments && editRow.attachments.length) {
+        h += '<div class="text-xs text-muted mb-3">Current files: '+editRow.attachments.map(function(a){ return esc(a.name||'file'); }).join(', ')+'</div>';
+        h += '<label style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.85rem;"><input type="checkbox" id="r-replace" /> Replace existing files (instead of append)</label>';
+      }
+      h += '<div class="form-group"><label>Title (optional — defaults to first filename)</label><input id="r-title" class="input" value="'+(editRow?esc(editRow.title):'')+'" placeholder="e.g. After Action Report 30 Jul" /></div>';
+      h += '<div class="form-group"><label>Notes (optional)</label><textarea id="r-body" class="textarea" placeholder="Short notes…">'+(editRow?esc(editRow.body||''):'')+'</textarea></div>';
       h += '<div class="form-group"><label>Min Rank</label><select id="r-rank" class="select">'+rankOptions(editRow?editRow.min_rank_level:1)+'</select></div>';
       h += '<div class="form-group"><label>Company</label><select id="r-company" class="select">'+buildCompanyOptions(companies, editRow?(editRow.company_id||""):"", true)+'</select></div>';
-      h += '<div class="form-group"><label>Tag people (they can see this even if below rank / wrong company)</label><div style="max-height:160px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:0.5rem;">';
+      h += '<div class="form-group"><label>Tag people (see even if wrong rank/company)</label><div style="max-height:160px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:0.5rem;">';
       var taggedSet = {};
       (editRow && editRow.tagged_admin_ids || []).forEach(function(id){ taggedSet[id] = true; });
       profiles.forEach(function(a) {
-        h += '<label style="display:flex;gap:0.5rem;align-items:center;margin:0.25rem 0;"><input type="checkbox" class="r-tag" value="'+a.id+'"'+(taggedSet[a.id]?' checked':'')+' /> '+esc(a.username)+' <span class="text-xs text-muted">('+esc(a.role)+' · R'+a.rank_level+')</span></label>';
+        h += '<label style="display:flex;gap:0.5rem;align-items:center;margin:0.25rem 0;"><input type="checkbox" class="r-tag" value="'+a.id+'"'+(taggedSet[a.id]?' checked':'')+' /> '+esc(a.username)+' <span class="text-xs text-muted">('+esc(a.role)+')</span></label>';
       });
-      if (!profiles.length) h += '<span class="text-xs text-muted">No members found</span>';
       h += '</div></div>';
-      h += '<div class="form-group"><label>'+(editRow?'Add more images / files':'Attach images / files')+'</label><input type="file" id="r-files" class="input" multiple accept="image/*,.pdf,.doc,.docx,.txt,.zip" /></div>';
-      if (editRow && editRow.attachments && editRow.attachments.length) {
-        h += '<div class="text-xs text-muted mb-3">Existing attachments: '+editRow.attachments.length+' (kept unless you replace by re-saving new files only — new files are appended)</div>';
-      }
       h += '<label style="display:flex;gap:0.5rem;align-items:center;margin-bottom:1rem;"><input type="checkbox" id="r-class"'+(editRow&&editRow.is_classified?' checked':'')+' /> Classified</label>';
-      h += '<div class="flex gap-2"><button class="btn" type="submit">'+(editRow?'Save Changes':'Publish Report')+'</button>';
-      if (editRow) h += '<button type="button" class="btn btn-outline" id="r-cancel-edit">Cancel edit</button>';
+      h += '<div class="flex gap-2"><button class="btn" type="submit">'+(editRow?'Save changes':'Upload report')+'</button>';
+      if (editRow) h += '<button type="button" class="btn btn-outline" id="r-cancel-edit">Cancel</button>';
       h += '</div></form></div>';
 
-      h += '<div class="panel"><h3 style="font-size:1rem;margin-bottom:0.8rem;">Reports you can access</h3>';
-      h += '<p class="text-xs text-muted mb-3">If a report is hidden here, your rank/company does not match and you are not tagged — even as admin.</p>';
-      if (!rows.length) h += '<p class="text-muted text-sm">No reports visible to this account.</p>';
+      h += '<div class="panel"><h3 style="font-size:1rem;margin-bottom:0.8rem;">Report files you can access</h3>';
+      if (!rows.length) h += '<p class="text-muted text-sm">No reports visible.</p>';
       rows.forEach(function(r) {
-        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between" style="flex-wrap:wrap;gap:0.5rem;"><div><strong>'+esc(r.title)+'</strong>';
-        h += '<div class="text-xs text-muted">'+getRankName(r.min_rank_level)+'+ · '+esc(companyName(companies, r.company_id));
-        if (r.attachments&&r.attachments.length) h += ' · 📎 '+r.attachments.length;
-        h += '</div></div><div class="flex gap-1">';
-        h += '<button class="btn btn-sm btn-outline" data-edit-r="'+r.id+'">Edit</button>';
+        var n = (r.attachments && r.attachments.length) ? r.attachments.length : 0;
+        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;"><div><strong>'+esc(r.title)+'</strong>';
+        h += '<div class="text-xs text-muted">'+getRankName(r.min_rank_level)+'+ · '+esc(companyName(companies, r.company_id))+' · 📎 '+n+' file(s)</div></div>';
+        h += '<div class="flex gap-1"><button class="btn btn-sm btn-outline" data-edit-r="'+r.id+'">Edit</button>';
         h += '<button class="btn btn-danger btn-sm" data-del-r="'+r.id+'">Delete</button></div></div>';
       });
       h += '</div>';
@@ -198,23 +195,34 @@
       document.getElementById("r-form").onsubmit = async function(e) {
         e.preventDefault();
         var btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true; btn.textContent = "Saving…";
-        var attachments = (editRow && editRow.attachments) ? editRow.attachments.slice() : [];
+        btn.disabled = true; btn.textContent = "Uploading…";
         var fileInput = document.getElementById("r-files");
-        if (fileInput.files && fileInput.files.length) {
-          var up = await uploadFiles(fileInput.files, "reports");
-          if (up.error) {
-            alert("Upload failed: "+up.error+"\\n\\nCreate Storage bucket archive-files in Supabase.");
-            btn.disabled = false; btn.textContent = editRow ? "Save Changes" : "Publish Report";
-            return;
-          }
-          attachments = attachments.concat(up.files || []);
+        var files = fileInput.files;
+        var attachments = (editRow && editRow.attachments) ? editRow.attachments.slice() : [];
+        var replace = document.getElementById("r-replace") && document.getElementById("r-replace").checked;
+        if (!editRow && (!files || !files.length)) {
+          alert("Choose at least one report file to upload.");
+          btn.disabled = false; btn.textContent = "Upload report"; return;
         }
+        if (files && files.length) {
+          var up = await uploadFiles(files, "reports");
+          if (up.error) {
+            alert("Upload failed: "+up.error+"\n\nCreate public Storage bucket archive-files.");
+            btn.disabled = false; btn.textContent = editRow ? "Save changes" : "Upload report"; return;
+          }
+          attachments = replace ? (up.files || []) : attachments.concat(up.files || []);
+        }
+        if (!attachments.length) {
+          alert("Report must have at least one file.");
+          btn.disabled = false; btn.textContent = editRow ? "Save changes" : "Upload report"; return;
+        }
+        var title = document.getElementById("r-title").value.trim();
+        if (!title) title = (attachments[0] && attachments[0].name) || "Report file";
         var tagged = [];
         document.querySelectorAll(".r-tag:checked").forEach(function(cb){ tagged.push(cb.value); });
         var payload = {
-          title: document.getElementById("r-title").value.trim(),
-          body: document.getElementById("r-body").value,
+          title: title,
+          body: document.getElementById("r-body").value || "",
           min_rank_level: Number(document.getElementById("r-rank").value),
           is_classified: document.getElementById("r-class").checked,
           status: "published",
@@ -222,12 +230,8 @@
           tagged_admin_ids: tagged,
           attachments: attachments
         };
-        if (editRow) {
-          payload.id = editRow.id;
-        } else {
-          payload.author_id = session.id;
-          payload.author_name = session.username;
-        }
+        if (editRow) payload.id = editRow.id;
+        else { payload.author_id = session.id; payload.author_name = session.username; }
         var ok = await saveReport(payload);
         if (!ok) alert("Save failed (check staff write policies).");
         window.__editReportId = null;
@@ -238,7 +242,7 @@
       });
       el.querySelectorAll("[data-del-r]").forEach(function(btn) {
         btn.onclick = async function() {
-          if (!confirm("Delete report?")) return;
+          if (!confirm("Delete this report and its listing?")) return;
           await deleteReport(btn.getAttribute("data-del-r"));
           window.__editReportId = null;
           render("reports");
@@ -248,23 +252,77 @@
 
     async function renderMerits(el) {
       var rows = await getMerits();
-      var h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Add Merit</h2><form id="m-form">';
-      h += '<div class="form-group"><label>Title</label><input id="m-title" class="input" required /></div>';
-      h += '<div class="form-group"><label>Recipient</label><input id="m-recip" class="input" /></div>';
-      h += '<div class="form-group"><label>Description</label><textarea id="m-desc" class="textarea"></textarea></div>';
-      h += '<button class="btn" type="submit">Add</button></form></div><div class="panel">';
+      var h = '<div class="panel mb-4"><h2 style="font-size:1.1rem;margin-bottom:1rem;">Upload merits & awards (.json)</h2>';
+      h += '<p class="text-xs text-muted mb-3">Upload your tracking export as <strong>.json</strong>. The file is stored and the JSON is saved for the Merits page. You can upload multiple tracking files over time.</p>';
+      h += '<form id="m-form">';
+      h += '<div class="form-group"><label>JSON file(s)</label><input type="file" id="m-files" class="input" accept=".json,application/json" multiple required /></div>';
+      h += '<div class="form-group"><label>Label (optional)</label><input id="m-title" class="input" placeholder="e.g. Merits export July 2026" /></div>';
+      h += '<div class="form-group"><label>Notes (optional)</label><textarea id="m-desc" class="textarea"></textarea></div>';
+      h += '<button class="btn" type="submit">Upload JSON</button></form></div>';
+      h += '<div class="panel"><h3 style="font-size:1rem;margin-bottom:0.8rem;">Stored tracking files</h3>';
+      if (!rows.length) h += '<p class="text-muted text-sm">No merits/awards JSON uploaded yet.</p>';
       rows.forEach(function(m) {
-        h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);" class="flex justify-between"><div><strong>'+esc(m.title)+'</strong><div class="text-xs text-muted">'+esc(m.recipient_name||"")+'</div></div><button class="btn btn-danger btn-sm" data-del-m="'+m.id+'">Delete</button></div>';
+        var recCount = Array.isArray(m.data) ? m.data.length : (m.data && typeof m.data === 'object' ? Object.keys(m.data).length : 0);
+        h += '<div style="padding:0.75rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">';
+        h += '<div><strong>'+esc(m.title||'Merits file')+'</strong>';
+        h += '<div class="text-xs text-muted">By '+esc(m.awarded_by||'—')+' · '+(m.file_name?esc(m.file_name):'json')+' · ~'+recCount+' entries';
+        if (m.created_at) h += ' · '+new Date(m.created_at).toLocaleString();
+        h += '</div>';
+        if (m.description) h += '<div class="text-sm text-muted mt-1">'+esc(m.description)+'</div>';
+        h += '</div><div class="flex gap-1">';
+        if (m.file_url) h += '<a class="btn btn-sm btn-outline" href="'+esc(m.file_url)+'" target="_blank" rel="noopener">Download</a>';
+        h += '<button class="btn btn-danger btn-sm" data-del-m="'+m.id+'">Delete</button></div></div>';
       });
       h += '</div>';
       el.innerHTML = h;
+
       document.getElementById("m-form").onsubmit = async function(e) {
         e.preventDefault();
-        await saveMerit({ title: document.getElementById("m-title").value.trim(), recipient_name: document.getElementById("m-recip").value.trim(), description: document.getElementById("m-desc").value, awarded_by: session.username });
+        var btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true; btn.textContent = "Uploading…";
+        var input = document.getElementById("m-files");
+        var files = Array.from(input.files || []);
+        if (!files.length) { alert("Choose a .json file"); btn.disabled=false; btn.textContent="Upload JSON"; return; }
+        var label = document.getElementById("m-title").value.trim();
+        var notes = document.getElementById("m-desc").value.trim();
+        for (var i = 0; i < files.length; i++) {
+          var file = files[i];
+          if (!/\.json$/i.test(file.name) && file.type !== "application/json") {
+            alert(file.name + " is not a .json file");
+            continue;
+          }
+          var text;
+          try { text = await file.text(); } catch (err) { alert("Could not read "+file.name); continue; }
+          var data;
+          try { data = JSON.parse(text); } catch (err) { alert(file.name + " is not valid JSON: " + err.message); continue; }
+          var up = await uploadFile(file, "merits");
+          if (up.error) {
+            alert("Upload failed for "+file.name+": "+up.error+"\n\nRun storage policies / create archive-files bucket.");
+            btn.disabled = false; btn.textContent = "Upload JSON"; return;
+          }
+          var ok = await saveMerit({
+            title: label || file.name.replace(/\.json$/i, "") || "Merits tracking",
+            description: notes || null,
+            recipient_name: null,
+            awarded_by: session.username,
+            data: data,
+            file_url: up.url,
+            file_name: file.name,
+            file_path: up.path || null
+          });
+          if (!ok) {
+            alert("Saved file but database insert failed. Run sql/merits-json.sql");
+            btn.disabled = false; btn.textContent = "Upload JSON"; return;
+          }
+        }
         render("merits");
       };
       el.querySelectorAll("[data-del-m]").forEach(function(btn) {
-        btn.onclick = async function() { if (!confirm("Delete?")) return; await deleteMerit(btn.getAttribute("data-del-m")); render("merits"); };
+        btn.onclick = async function() {
+          if (!confirm("Delete this merits tracking file?")) return;
+          await deleteMerit(btn.getAttribute("data-del-m"));
+          render("merits");
+        };
       });
     }
 
